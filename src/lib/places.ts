@@ -395,6 +395,24 @@ function filterPlacesForInterest(
     .filter((place): place is PlaceResult => place !== null);
 }
 
+function circleLocationBias(lat: number, lng: number, radiusMeters: number) {
+  return {
+    circle: {
+      center: { latitude: lat, longitude: lng },
+      radius: Math.min(radiusMeters, 50_000),
+    },
+  };
+}
+
+function circleLocationRestriction(lat: number, lng: number, radiusMeters: number) {
+  return {
+    circle: {
+      center: { latitude: lat, longitude: lng },
+      radius: Math.min(radiusMeters, 50_000),
+    },
+  };
+}
+
 async function searchTextForInterest(
   apiKey: string,
   interest: Interest,
@@ -422,12 +440,7 @@ async function searchTextForInterest(
         minRating: MIN_PLACE_RATING,
         pageSize,
         rankPreference: "DISTANCE",
-        locationRestriction: {
-          circle: {
-            center: { latitude: lat, longitude: lng },
-            radius,
-          },
-        },
+        locationBias: circleLocationBias(lat, lng, radius),
       }),
     },
   );
@@ -468,12 +481,7 @@ async function searchNearbyForInterest(
         includedTypes: [config.includedType],
         maxResultCount,
         rankPreference: "POPULARITY",
-        locationRestriction: {
-          circle: {
-            center: { latitude: lat, longitude: lng },
-            radius,
-          },
-        },
+        locationRestriction: circleLocationRestriction(lat, lng, radius),
       }),
     },
   );
@@ -548,12 +556,7 @@ async function searchPlacesByConfig(
         minRating: MIN_PLACE_RATING,
         pageSize,
         rankPreference: "RELEVANCE",
-        locationBias: {
-          circle: {
-            center: { latitude: lat, longitude: lng },
-            radius,
-          },
-        },
+        locationBias: circleLocationBias(lat, lng, radius),
       }),
     },
   );
