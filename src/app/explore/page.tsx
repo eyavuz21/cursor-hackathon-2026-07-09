@@ -11,6 +11,7 @@ import { getInterestLabels } from "@/lib/interests";
 import { getSearchRadiusMeters } from "@/lib/places";
 import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
 import type { PlaceResult, UserPreferences } from "@/lib/types";
+import { AppHeader } from "@/components/AppHeader";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
 
@@ -165,27 +166,23 @@ export default function ExplorePage() {
 
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 font-sans dark:bg-black">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="font-mono text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                Wander
-              </span>
-            </div>
-            {preferences && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {healthLabel}
-                {radiusMeters
-                  ? ` · ${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} radius`
-                  : ""}
-                {interestLabels ? ` · ${interestLabels}` : ""}
-                {outingLabel ? ` · ${outingLabel}` : ""}
-                {" · 4.5+ stars"}
-              </p>
-            )}
-          </div>
+      <AppHeader
+        subtitle={
+          preferences
+            ? [
+                healthLabel,
+                radiusMeters
+                  ? `${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} radius`
+                  : null,
+                interestLabels || null,
+                outingLabel,
+                "4.5+ stars",
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        actions={
           <button
             type="button"
             onClick={handleStartOver}
@@ -193,8 +190,8 @@ export default function ExplorePage() {
           >
             Start over
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6 lg:flex-row">
         {error ? (
