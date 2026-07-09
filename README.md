@@ -50,23 +50,26 @@ Most people cannot find gym time, but they still travel. HealthOptimised turns a
 
 ---
 
-## Spatial shopping planner (ParkAndSave integration)
+## Spatial shopping planner
 
-Errands are another form of urban mobility that default maps treat as pure efficiency. Wander adds a **spatial shopping planner** inspired by [ParkAndSave](https://github.com/eyavuz21/ParkAndSave) and [SpatialCart](https://spatialcart.up.railway.app/) — merging "where do I shop?" with "how do I get there?".
+Errands are another form of urban mobility that default maps treat as pure efficiency. Wander merges **where you shop** with **how you get there** — so groceries fit into your walk instead of becoming a separate trip.
 
 | Mode | What it optimises for |
 |------|------------------------|
-| **Scavenger** | Nearest stop per item along your route — hunt deals across multiple shops without a big detour |
-| **Efficiency** | One supermarket that covers your whole list — minimise stops when you are in a rush |
+| **Scavenger** | Cheapest stop per item along your route — hunt deals across multiple supermarkets without a big detour |
+| **Efficiency** | One supermarket for your whole list — lowest total basket price when live data is available |
 
-**How it works today (MVP):**
+**How it works:**
 
 1. Type or paste your shopping list on [`/shop`](https://cursor-hackathon-2026-07-09.vercel.app/shop)
 2. Optionally set a destination (or plan from your current location)
-3. Wander finds real nearby supermarkets via **OpenStreetMap** (same data layer as ParkAndSave)
-4. When `LINKUP_API_KEY` is set, Wander queries **LinkUp** for live grocery prices and picks stops by cost (Scavenger = cheapest per item, Efficiency = lowest basket)
+3. Wander finds real nearby supermarkets via **OpenStreetMap**
+4. With `LINKUP_API_KEY` configured, **LinkUp** fetches live UK grocery prices from the web
+5. The planner orders stops by cost:
+   - **Scavenger** → cheapest shop per item along your corridor
+   - **Efficiency** → single shop with the lowest estimated basket total
 
-**ParkAndSave integration:** uses the same LinkUp stack as [ParkAndSave](https://github.com/eyavuz21/ParkAndSave). Without `LINKUP_API_KEY`, the planner falls back to route-based supermarket matching. Parking search and agent-authored UI (CopilotKit + A2UI) remain on the ParkAndSave roadmap.
+Without `LINKUP_API_KEY`, the planner still works but falls back to route-based supermarket matching (locations only, no £ prices).
 
 ---
 
@@ -77,7 +80,7 @@ Errands are another form of urban mobility that default maps treat as pure effic
 | [`/onboarding`](https://cursor-hackathon-2026-07-09.vercel.app/onboarding) | Mode-first setup: pick MentalClear, SocialExplore, or HealthOptimised → one follow-up question → launch |
 | [`/explore`](https://cursor-hackathon-2026-07-09.vercel.app/explore) | Map + recommendations from your location; toggle journey mode live |
 | [`/plan`](https://cursor-hackathon-2026-07-09.vercel.app/plan) | Build a walking journal route through Explore picks to a destination |
-| [`/shop`](https://cursor-hackathon-2026-07-09.vercel.app/shop) | Spatial shopping planner — Scavenger or Efficiency mode |
+| [`/shop`](https://cursor-hackathon-2026-07-09.vercel.app/shop) | Spatial shopping planner with live prices (Scavenger or Efficiency) |
 
 ---
 
@@ -85,7 +88,7 @@ Errands are another form of urban mobility that default maps treat as pure effic
 
 > **Don't pitch "a map with filters."** Pitch a tool that humanises urban transit.
 >
-> Wander reclaims the dead time spent moving through cities for **mental health** (MentalClear), **community wealth** (SocialExplore), and **physical vitality** (HealthOptimised) — with a spatial errand layer (ParkAndSave) that makes shopping part of the journey instead of a separate optimisation problem.
+> Wander reclaims the dead time spent moving through cities for **mental health** (MentalClear), **community wealth** (SocialExplore), and **physical vitality** (HealthOptimised) — plus a spatial errand layer that weaves live-priced shopping into the route itself.
 
 **Why judges should care:** the product sits at the intersection of urban mobility, mental well-being, and local economic resilience — three problems that got worse after the pandemic and are still unsolved by incumbents optimising for ETA alone.
 
@@ -96,7 +99,8 @@ Errands are another form of urban mobility that default maps treat as pure effic
 - **Next.js 16** (App Router) · **React 19** · **TypeScript** · **Tailwind CSS 4**
 - **Supabase** — anonymous auth + `user_preferences`
 - **Google Places API (New)** — recommendations, geocoding, walking directions
-- **OpenStreetMap / Overpass** — supermarket discovery for the shopping planner (ParkAndSave pattern)
+- **OpenStreetMap / Overpass** — supermarket discovery for the shopping planner
+- **LinkUp** — live web-sourced grocery prices on `/shop`
 
 ---
 
@@ -120,7 +124,7 @@ Add to `.env.local` and [Vercel project settings](https://vercel.com/boyle/curso
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `GOOGLE_MAPS_API_KEY` | Server-side Places + Directions |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client-side Maps JS |
-| `LINKUP_API_KEY` | Live grocery prices on `/shop` (optional; ParkAndSave / LinkUp) |
+| `LINKUP_API_KEY` | Live grocery prices on `/shop` (optional — get one at [app.linkup.so](https://app.linkup.so)) |
 
 ### Supabase setup
 
@@ -135,10 +139,3 @@ See [`PLAN.md`](PLAN.md) for the original hackathon build plan.
 
 - **Production** — `main` → [cursor-hackathon-2026-07-09.vercel.app](https://cursor-hackathon-2026-07-09.vercel.app)
 - **Preview** — automatic for every branch and pull request
-
----
-
-## Related projects
-
-- [ParkAndSave](https://github.com/eyavuz21/ParkAndSave) — agentic errand copilot (parking + supermarket routing, live web prices)
-- [SpatialCart](https://spatialcart.up.railway.app/) — cheapest multi-store shopping routes
