@@ -32,6 +32,7 @@ import {
   updateJourneyMode,
 } from "@/lib/preferences";
 import { getSearchRadiusMeters } from "@/lib/places";
+import { rankPlacesForJourney } from "@/lib/place-ranking";
 import {
   getRecommendedPlaces,
   saveRecommendedPlaces,
@@ -80,17 +81,21 @@ export default function JourneyPage() {
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [errandsOpen, setErrandsOpen] = useState(false);
 
-  const recommendedPlaces = places.filter((place) => journeyPlaceIds.has(place.id));
+  const recommendedPlaces = rankPlacesForJourney(
+    places.filter((place) => journeyPlaceIds.has(place.id)),
+    preferences?.details,
+  );
 
   const loadPlaces = useCallback(
     async (position: Coordinates, prefs: UserPreferences) => {
       const saved = getRecommendedPlaces();
       if (saved && saved.places.length > 0) {
-        setPlaces(saved.places);
+        const ranked = rankPlacesForJourney(saved.places, prefs.details);
+        setPlaces(ranked);
         setSearchRadiusMeters(
           getSearchRadiusMeters(prefs.healthGoal, prefs.details),
         );
-        setSelectedPlaceId(saved.places[0]?.id ?? null);
+        setSelectedPlaceId(ranked[0]?.id ?? null);
         setJourneyPlaceIds(new Set(saved.selectedPlaceIds));
         return;
       }
@@ -121,12 +126,12 @@ export default function JourneyPage() {
         throw new Error(data.error ?? "Failed to load recommendations.");
       }
 
-      const nextPlaces = data.places ?? [];
-      setPlaces(nextPlaces);
+      const ranked = rankPlacesForJourney(data.places ?? [], prefs.details);
+      setPlaces(ranked);
       setSearchRadiusMeters(data.searchRadiusMeters ?? null);
       setDistanceSpread(data.distanceSpread ?? null);
-      setSelectedPlaceId(nextPlaces[0]?.id ?? null);
-      const allIds = new Set(nextPlaces.map((place) => place.id));
+      setSelectedPlaceId(ranked[0]?.id ?? null);
+      const allIds = new Set(ranked.map((place) => place.id));
       setJourneyPlaceIds(allIds);
     },
     [],
@@ -249,7 +254,10 @@ export default function JourneyPage() {
             healthGoal: preferences.healthGoal,
             interests: preferences.interests,
             details: preferences.details,
-            recommendedPlaces,
+            recommendedPlaces: rankPlacesForJourney(
+              recommendedPlaces,
+              preferences.details,
+            ),
             healthOptimisedRoute: isHealthOptimisedMode(preferences.details),
           }),
         });
@@ -569,7 +577,8 @@ export default function JourneyPage() {
                       <p className="text-sm text-muted">{spreadLabel}</p>
                     )}
                     <p className="text-sm text-muted">
-                      Choose where to wander, then build your walking route below.
+                      Top-rated picks for your vibe — highest stars first. Choose
+                      your stops, then build your walking route below.
                     </p>
                   </div>
                   <PlaceList
@@ -600,7 +609,7 @@ export default function JourneyPage() {
                   <h2 className="brand-heading">Plan your route</h2>
                   <p className="text-sm leading-relaxed text-muted">
                     Choose where to end your walk. We&apos;ll route through your
-                    other picks on the way there.
+                    highest-rated other picks on the way there.
                   </p>
                   {recommendedPlaces.length > 0 ? (
                     <p className="text-sm text-muted">

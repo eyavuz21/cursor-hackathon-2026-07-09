@@ -46,6 +46,7 @@ export type PlaceResult = {
   lat: number;
   lng: number;
   rating?: number;
+  userRatingCount?: number;
   distanceMeters?: number;
   googleMapsUri?: string;
 };
