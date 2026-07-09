@@ -9,7 +9,7 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
     <div className="flex flex-col items-start gap-8">
       <div className="flex flex-col gap-4">
         <p className="onboarding-animate-fade-up onboarding-delay-1 brand-label">
-          New York · Travel Guide
+          Travel Guide
         </p>
         <h1 className="onboarding-animate-fade-up onboarding-delay-2 brand-heading text-4xl">
           Let&apos;s plan your perfect wander
