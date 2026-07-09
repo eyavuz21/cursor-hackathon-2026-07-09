@@ -5,6 +5,7 @@ import {
   FOOD_INTEREST_OPTIONS,
   HISTORY_INTEREST_OPTIONS,
 } from "@/lib/interests";
+import { SelectableOption } from "./SelectableOption";
 
 type InterestsStepProps = {
   value: Interest[];
@@ -31,42 +32,18 @@ function InterestSection({
         <p className="text-sm text-muted">{description}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {options.map((option, index) => {
-          const selected = value.includes(option.value);
-
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onToggle(option.value)}
-              className={`onboarding-animate-fade-up brand-card p-3 text-left ${
-                selected ? "brand-card-selected" : "hover:border-muted"
-              }`}
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-foreground">
-                    {option.label}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {option.description}
-                  </span>
-                </div>
-                <span
-                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border text-[10px] ${
-                    selected
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border"
-                  }`}
-                >
-                  {selected ? "✓" : ""}
-                </span>
-              </div>
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {options.map((option, index) => (
+          <SelectableOption
+            key={option.value}
+            selected={value.includes(option.value)}
+            onSelect={() => onToggle(option.value)}
+            title={option.label}
+            description={option.description}
+            selectionType="multiple"
+            animationDelay={`${index * 0.05}s`}
+          />
+        ))}
       </div>
     </section>
   );
