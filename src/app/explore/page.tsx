@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   clearPreferences,
@@ -192,6 +193,25 @@ export default function ExplorePage() {
           </button>
         }
       />
+
+      <div className="mx-auto w-full max-w-6xl px-6 pt-4">
+        <Link
+          href="/plan"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
+        >
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+              Planning a journey?
+            </span>
+            <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
+              Tell us where you&apos;re headed and we&apos;ll weave recommendations into your route.
+            </span>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            Journal planner →
+          </span>
+        </Link>
+      </div>
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6 lg:flex-row">
         {error ? (

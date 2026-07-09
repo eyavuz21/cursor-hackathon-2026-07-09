@@ -249,7 +249,7 @@ async function searchPlacesForInterest(
         minRating: MIN_PLACE_RATING,
         pageSize,
         rankPreference: "RELEVANCE",
-        locationRestriction: {
+        locationBias: {
           circle: {
             center: { latitude: lat, longitude: lng },
             radius,
