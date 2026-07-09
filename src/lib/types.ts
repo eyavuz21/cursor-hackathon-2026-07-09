@@ -20,8 +20,11 @@ export type Interest = HistoryInterest | FoodInterest;
 
 export type OutingStyle = "scenic" | "direct" | "explorer";
 
+export type JourneyMode = "mindfulness" | "social";
+
 export type OnboardingDetails = {
   outingStyle?: OutingStyle;
+  journeyMode?: JourneyMode;
 };
 
 export type UserPreferences = {

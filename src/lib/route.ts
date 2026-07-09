@@ -8,6 +8,11 @@ import type {
   UserPreferences,
 } from "@/lib/types";
 import { getSearchRadiusMeters, searchRecommendations } from "@/lib/places";
+import {
+  getJourneyMode,
+  getModeDetourMultiplier,
+  getModeRouteStopsOffset,
+} from "@/lib/modes";
 
 const EARTH_RADIUS_METERS = 6_371_000;
 
@@ -216,12 +221,17 @@ export async function buildTripPlan(
   destination: GeocodedDestination,
   preferences: UserPreferences,
 ): Promise<TripPlan> {
+  const mode = getJourneyMode(preferences.details);
   const radius = Math.min(
     getSearchRadiusMeters(preferences.healthGoal, preferences.details),
     50_000,
   );
-  const maxStops = MAX_STOPS_BY_HEALTH[preferences.healthGoal];
-  const samplePoints = sampleRoutePoints(start, destination, 4);
+  const maxStops = Math.max(
+    1,
+    MAX_STOPS_BY_HEALTH[preferences.healthGoal] + getModeRouteStopsOffset(mode),
+  );
+  const maxDetourMeters = radius * getModeDetourMultiplier(mode);
+  const samplePoints = sampleRoutePoints(start, destination, mode === "social" ? 5 : 3);
 
   const placeBatches = await Promise.all(
     samplePoints.map((point) =>
@@ -242,7 +252,7 @@ export async function buildTripPlan(
     destination,
     allPlaces,
     maxStops,
-    radius,
+    maxDetourMeters,
   );
 
   const stops = buildStops(start, destination, recommendations);

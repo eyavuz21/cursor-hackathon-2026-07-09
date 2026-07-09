@@ -1,10 +1,19 @@
 import type {
   HealthGoal,
   Interest,
+  JourneyMode,
   OnboardingDetails,
   PlaceResult,
 } from "./types";
 import { getRadiusMeters } from "./preferences";
+import {
+  getJourneyMode,
+  getModeMaxResultsMultiplier,
+  getModeRadiusMultiplier,
+  MODE_EXTRA_SEARCHES,
+  scorePlaceForMode,
+  type ModePlaceSearch,
+} from "./modes";
 
 export const MIN_PLACE_RATING = 4.5;
 export const MAX_RECOMMENDATIONS = 12;
@@ -80,11 +89,12 @@ export function getSearchRadiusMeters(
   details?: OnboardingDetails,
 ): number {
   const base = getRadiusMeters(healthGoal);
-  const multiplier = details?.outingStyle
+  const outingMultiplier = details?.outingStyle
     ? OUTING_RADIUS_MULTIPLIER[details.outingStyle]
     : 1;
+  const modeMultiplier = getModeRadiusMultiplier(getJourneyMode(details));
 
-  return Math.round(base * multiplier);
+  return Math.round(base * outingMultiplier * modeMultiplier);
 }
 
 /** @deprecated Use per-interest search in searchRecommendations */
@@ -233,6 +243,64 @@ export function balancePlacesByInterest(
   return selected;
 }
 
+function sortPlacesForMode(
+  places: PlaceResult[],
+  mode: JourneyMode,
+): PlaceResult[] {
+  return [...places].sort(
+    (a, b) => scorePlaceForMode(b, mode) - scorePlaceForMode(a, mode),
+  );
+}
+
+async function searchPlacesByConfig(
+  apiKey: string,
+  config: ModePlaceSearch,
+  lat: number,
+  lng: number,
+  radius: number,
+  pageSize: number,
+): Promise<PlaceResult[]> {
+  const response = await fetch(
+    "https://places.googleapis.com/v1/places:searchText",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": FIELD_MASK,
+      },
+      body: JSON.stringify({
+        textQuery: config.textQuery,
+        includedType: config.includedType,
+        strictTypeFiltering: true,
+        minRating: MIN_PLACE_RATING,
+        pageSize,
+        rankPreference: "RELEVANCE",
+        locationBias: {
+          circle: {
+            center: { latitude: lat, longitude: lng },
+            radius,
+          },
+        },
+      }),
+    },
+  );
+
+  const data = (await response.json()) as {
+    places?: GooglePlace[];
+    error?: { message?: string };
+  };
+
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? `Failed to search for ${config.label}.`);
+  }
+
+  return (data.places ?? [])
+    .filter((place) => meetsMinRating(place) && !isLodgingPlace(place))
+    .map((place) => normalizePlace(place, { lat, lng }))
+    .filter((place): place is PlaceResult => place !== null);
+}
+
 async function searchPlacesForInterest(
   apiKey: string,
   interest: Interest,
@@ -298,13 +366,17 @@ export async function searchRecommendations(params: {
   details?: OnboardingDetails;
 }): Promise<PlaceResult[]> {
   const { apiKey, lat, lng, healthGoal, interests, details } = params;
+  const mode = getJourneyMode(details);
   const radius = getSearchRadiusMeters(healthGoal, details);
+  const maxResults = Math.round(
+    MAX_RECOMMENDATIONS * getModeMaxResultsMultiplier(mode),
+  );
   const perInterestLimit = Math.min(
     10,
-    Math.max(4, Math.ceil(MAX_RECOMMENDATIONS / interests.length)),
+    Math.max(4, Math.ceil(maxResults / Math.max(interests.length, 1))),
   );
 
-  const results = await Promise.all(
+  const interestResults = await Promise.all(
     interests.map(async (interest) => {
       const places = await searchPlacesForInterest(
         apiKey,
@@ -319,12 +391,18 @@ export async function searchRecommendations(params: {
     }),
   );
 
-  const byInterest = new Map<Interest, PlaceResult[]>(results);
-  const balanced = balancePlacesByInterest(byInterest, MAX_RECOMMENDATIONS);
-
-  return dedupePlaces(
-    sortByQualityThenDistance(balanced).filter(
-      (place) => (place.distanceMeters ?? 0) <= radius,
+  const modeExtras = await Promise.all(
+    MODE_EXTRA_SEARCHES[mode].map((config) =>
+      searchPlacesByConfig(apiKey, config, lat, lng, radius, 4),
     ),
   );
+
+  const byInterest = new Map<Interest, PlaceResult[]>(interestResults);
+  const balanced = balancePlacesByInterest(byInterest, maxResults);
+  const withExtras = dedupePlaces([...balanced, ...modeExtras.flat()]);
+
+  return sortPlacesForMode(
+    withExtras.filter((place) => (place.distanceMeters ?? 0) <= radius),
+    mode,
+  ).slice(0, maxResults);
 }
