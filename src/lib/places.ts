@@ -451,7 +451,7 @@ async function searchTextForInterest(
   };
 
   if (!response.ok) {
-    throw new Error(data.error?.message ?? `Failed to search for ${interest}.`);
+    return [];
   }
 
   return filterPlacesForInterest(data.places ?? [], interest, origin);
@@ -505,11 +505,16 @@ async function searchPlacesForInterest(
   lng: number,
   radius: number,
   pageSize: number,
+  options?: { skipRadialAnchors?: boolean },
 ): Promise<PlaceResult[]> {
-  const anchors = getRadialSearchAnchors(lat, lng, radius);
+  const anchors = options?.skipRadialAnchors
+    ? []
+    : getRadialSearchAnchors(lat, lng, radius);
 
   const [textPlaces, nearbyPlaces, anchorBatches] = await Promise.all([
-    searchTextForInterest(apiKey, interest, lat, lng, radius, pageSize),
+    searchTextForInterest(apiKey, interest, lat, lng, radius, pageSize).catch(
+      () => [],
+    ),
     searchNearbyForInterest(apiKey, interest, lat, lng, radius, pageSize),
     Promise.all(
       anchors.map((anchor) =>
@@ -567,7 +572,7 @@ async function searchPlacesByConfig(
   };
 
   if (!response.ok) {
-    throw new Error(data.error?.message ?? `Failed to search for ${config.label}.`);
+    return [];
   }
 
   return (data.places ?? [])
@@ -609,6 +614,7 @@ export async function searchRecommendations(params: {
     MAX_RECOMMENDATIONS * getModeMaxResultsMultiplier(mode),
   );
   const pageSize = Math.min(20, Math.max(12, maxResults + 4));
+  const skipRadialAnchors = interests.length > 3;
 
   const interestResults = await Promise.all(
     interests.map(async (interest) => {
@@ -619,6 +625,7 @@ export async function searchRecommendations(params: {
         lng,
         radius,
         pageSize,
+        { skipRadialAnchors },
       );
 
       return [interest, places] as const;
@@ -627,7 +634,7 @@ export async function searchRecommendations(params: {
 
   const modeExtras = await Promise.all(
     MODE_EXTRA_SEARCHES[mode].map((config) =>
-      searchPlacesByConfig(apiKey, config, lat, lng, radius, 4),
+      searchPlacesByConfig(apiKey, config, lat, lng, radius, 4).catch(() => []),
     ),
   );
 

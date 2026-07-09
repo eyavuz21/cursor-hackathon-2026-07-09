@@ -44,11 +44,15 @@ export default function OnboardingPage() {
     setError(null);
   }
 
-  function handleModeChange(mode: JourneyMode) {
+  function handleModeSelect(mode: JourneyMode) {
     setJourneyMode(mode);
     setHealthGoal(null);
     setSocialVibes([]);
     setTimeBudget(null);
+
+    if (effectiveStepIndex === steps.indexOf("mode")) {
+      goToStep(effectiveStepIndex + 1, "forward");
+    }
   }
 
   const handleLaunchComplete = useCallback(async () => {
@@ -100,7 +104,7 @@ export default function OnboardingPage() {
       case "welcome":
         return <WelcomeStep onStart={handleNext} />;
       case "mode":
-        return <ModeStep value={journeyMode} onChange={handleModeChange} />;
+        return <ModeStep value={journeyMode} onChange={handleModeSelect} />;
       case "mode-followup":
         return journeyMode ? (
           <ModeFollowUpStep
