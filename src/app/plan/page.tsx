@@ -24,6 +24,7 @@ import {
   getSelectedRecommendedPlaces,
   saveRecommendedPlaces,
 } from "@/lib/recommended-places";
+import { buildWalkingDirectionsUrl } from "@/lib/google-maps-url";
 import type { JourneyMode, PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { DestinationPicker } from "@/components/plan/DestinationPicker";
@@ -499,6 +500,8 @@ export default function PlanPage() {
                 routePath={plan.routePath}
                 selectedStopId={selectedStopId}
                 onSelectStop={handleSelectStop}
+                totalDistanceMeters={plan.totalDistanceMeters}
+                estimatedDurationMinutes={plan.routeStats?.estimatedDurationMinutes}
               />
             </div>
 
@@ -558,10 +561,15 @@ export default function PlanPage() {
               />
 
               <a
-                href={`https://www.google.com/maps/dir/?api=1&origin=${plan.start.lat},${plan.start.lng}&destination=${plan.destination.lat},${plan.destination.lng}&waypoints=${plan.stops
-                  .filter((stop) => stop.type === "recommendation")
-                  .map((stop) => `${stop.lat},${stop.lng}`)
-                  .join("|")}&travelmode=walking`}
+                href={buildWalkingDirectionsUrl(
+                  plan.stops.map((stop) => ({
+                    lat: stop.lat,
+                    lng: stop.lng,
+                    name: stop.name,
+                    placeId: stop.placeId,
+                    googleMapsUri: stop.googleMapsUri,
+                  })),
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="brand-button-primary inline-flex justify-center"
