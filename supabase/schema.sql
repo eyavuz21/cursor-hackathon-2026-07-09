@@ -9,9 +9,8 @@ create table if not exists public.user_preferences (
   updated_at timestamptz not null default now()
 );
 
--- Migration for existing projects:
--- alter table public.user_preferences
---   add column if not exists profile_details jsonb not null default '{}'::jsonb;
+-- Migration for existing projects (run if you get "profile_details" column errors):
+-- See supabase/migrations/002_add_profile_details.sql
 
 alter table public.user_preferences enable row level security;
 
