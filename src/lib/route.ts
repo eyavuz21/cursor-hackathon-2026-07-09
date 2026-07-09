@@ -15,7 +15,9 @@ import type {
   TripPlan,
   UserPreferences,
 } from "@/lib/types";
-import { getSearchRadiusMeters, searchRecommendations } from "@/lib/places";
+import { fetchWalkingRoute } from "@/lib/directions";
+import { geocodeDestination } from "@/lib/google-places";
+import { getSearchRadiusMeters, searchRecommendations, dedupePlaces } from "@/lib/places";
 import {
   getJourneyMode,
   getModeDetourMultiplier,
@@ -90,6 +92,7 @@ function selectPlacesAlongRoute(
   places: PlaceResult[],
   maxStops: number,
   maxDetourMeters: number,
+  options?: { relaxDetour?: boolean },
 ): PlaceResult[] {
   const scored = places
     .map((place) => {
@@ -101,12 +104,11 @@ function selectPlacesAlongRoute(
 
       return { place, ...projection };
     })
-    .filter(
-      (entry) =>
-        entry.t > 0.05 &&
-        entry.t < 0.95 &&
-        entry.perpendicularMeters <= maxDetourMeters,
-    )
+    .filter((entry) => {
+      if (entry.t <= 0.05 || entry.t >= 0.95) return false;
+      if (options?.relaxDetour) return true;
+      return entry.perpendicularMeters <= maxDetourMeters;
+    })
     .sort((a, b) => {
       if (b.place.rating !== undefined && a.place.rating !== undefined) {
         const ratingDiff = b.place.rating - a.place.rating;
@@ -133,6 +135,98 @@ function selectPlacesAlongRoute(
       projectOntoRoute({ lat: a.lat, lng: a.lng }, start, end).t -
       projectOntoRoute({ lat: b.lat, lng: b.lng }, start, end).t,
   );
+}
+
+export function orderPlacesForWalkingRoute(
+  start: LatLng,
+  places: PlaceResult[],
+  maxStops: number,
+): PlaceResult[] {
+  const remaining = dedupePlaces(places);
+  const ordered: PlaceResult[] = [];
+  let current = start;
+
+  while (ordered.length < maxStops && remaining.length > 0) {
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < remaining.length; index += 1) {
+      const place = remaining[index];
+      const distance = haversineMeters(current, {
+        lat: place.lat,
+        lng: place.lng,
+      });
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    }
+
+    const [next] = remaining.splice(bestIndex, 1);
+    ordered.push(next);
+    current = { lat: next.lat, lng: next.lng };
+  }
+
+  return ordered;
+}
+
+function applyLegDistances(
+  stops: JournalStop[],
+  legDistancesMeters: number[],
+): JournalStop[] {
+  if (legDistancesMeters.length === 0) return stops;
+
+  return stops.map((stop, index) => {
+    if (index === 0) return stop;
+
+    const legDistance = legDistancesMeters[index - 1];
+    if (legDistance === undefined) return stop;
+
+    return {
+      ...stop,
+      distanceFromPreviousMeters: legDistance,
+    };
+  });
+}
+
+async function buildWalkingRouteForStops(
+  apiKey: string,
+  stops: JournalStop[],
+): Promise<{
+  routePath: LatLng[];
+  stops: JournalStop[];
+  totalDistanceMeters: number;
+}> {
+  const waypoints = stops.map((stop) => ({ lat: stop.lat, lng: stop.lng }));
+
+  try {
+    const walkingRoute = await fetchWalkingRoute(apiKey, waypoints);
+    const updatedStops = applyLegDistances(
+      stops,
+      walkingRoute.legDistancesMeters,
+    );
+
+    return {
+      routePath: walkingRoute.path,
+      stops: updatedStops,
+      totalDistanceMeters:
+        walkingRoute.totalDistanceMeters ||
+        updatedStops.reduce(
+          (sum, stop) => sum + (stop.distanceFromPreviousMeters ?? 0),
+          0,
+        ),
+    };
+  } catch {
+    return {
+      routePath: buildRoutePath(stops),
+      stops,
+      totalDistanceMeters: stops.reduce(
+        (sum, stop) => sum + (stop.distanceFromPreviousMeters ?? 0),
+        0,
+      ),
+    };
+  }
 }
 
 function routeDistanceWithStops(
@@ -353,22 +447,26 @@ export function buildRoutePath(stops: JournalStop[]): LatLng[] {
 
 export async function buildTripPlan(
   apiKey: string,
-  destinationQuery: string,
+  destinationQuery: string | undefined,
   start: LatLng & { name?: string },
-  destination: GeocodedDestination,
   preferences: UserPreferences,
-  options?: { healthOptimisedRoute?: boolean },
+  options?: {
+    healthOptimisedRoute?: boolean;
+    recommendedPlaces?: PlaceResult[];
+    destinationPlaceId?: string;
+  },
 ): Promise<TripPlan> {
   const healthOptimised =
     options?.healthOptimisedRoute ?? isHealthOptimisedMode(preferences.details);
   const maxWalkMinutes =
     preferences.details?.timeBudget === "45" ? 45 : MAX_WALK_MINUTES;
+  const recommendedPlaces = options?.recommendedPlaces;
+  const destinationPlaceId = options?.destinationPlaceId;
   const mode = getJourneyMode(preferences.details);
   const radius = Math.min(
     getSearchRadiusMeters(preferences.healthGoal, preferences.details),
     50_000,
   );
-  const directMeters = haversineMeters(start, destination);
   let maxStops = Math.max(
     1,
     MAX_STOPS_BY_HEALTH[preferences.healthGoal] + getModeRouteStopsOffset(mode),
@@ -382,50 +480,131 @@ export async function buildTripPlan(
     sampleCount = 6;
   }
 
-  const samplePoints = sampleRoutePoints(start, destination, sampleCount);
+  const trimmedQuery = destinationQuery?.trim() ?? "";
+  let destination: GeocodedDestination;
+  let recommendations: PlaceResult[];
+  let resolvedDestinationQuery: string;
 
-  const placeBatches = await Promise.all(
-    samplePoints.map((point) =>
-      searchRecommendations({
-        apiKey,
-        lat: point.lat,
-        lng: point.lng,
-        healthGoal: preferences.healthGoal,
-        interests: preferences.interests,
-        details: preferences.details,
-      }),
-    ),
-  );
+  if (recommendedPlaces && recommendedPlaces.length > 0) {
+    const destinationPick = destinationPlaceId
+      ? recommendedPlaces.find((place) => place.id === destinationPlaceId)
+      : undefined;
 
-  const allPlaces = placeBatches.flat();
-  const recommendations = healthOptimised
-    ? selectHealthOptimisedStops(
+    if (destinationPick) {
+      destination = {
+        name: destinationPick.name,
+        address: destinationPick.address,
+        lat: destinationPick.lat,
+        lng: destinationPick.lng,
+      };
+      resolvedDestinationQuery = destinationPick.name;
+
+      const waypointPool = recommendedPlaces.filter(
+        (place) => place.id !== destinationPick.id,
+      );
+      recommendations = orderPlacesForWalkingRoute(
         start,
-        destination,
-        allPlaces,
-        maxDetourMeters,
-        directMeters,
-        maxWalkMinutes,
-      )
-    : selectPlacesAlongRoute(
-        start,
-        destination,
-        allPlaces,
+        waypointPool,
         maxStops,
-        maxDetourMeters,
       );
 
-  const stops = buildStops(start, destination, recommendations);
-  const routePath = buildRoutePath(stops);
-  const totalDistanceMeters = stops.reduce(
-    (sum, stop) => sum + (stop.distanceFromPreviousMeters ?? 0),
-    0,
-  );
+      if (healthOptimised) {
+        recommendations = selectHealthOptimisedStops(
+          start,
+          destination,
+          recommendations,
+          maxDetourMeters,
+          haversineMeters(start, destination),
+          maxWalkMinutes,
+        );
+      }
+    } else {
+      const orderedPlaces = orderPlacesForWalkingRoute(
+        start,
+        recommendedPlaces,
+        maxStops,
+      );
+
+      if (orderedPlaces.length === 1) {
+        const only = orderedPlaces[0];
+        destination = {
+          name: only.name,
+          address: only.address,
+          lat: only.lat,
+          lng: only.lng,
+        };
+        resolvedDestinationQuery = only.name;
+        recommendations = [];
+      } else {
+        const last = orderedPlaces[orderedPlaces.length - 1];
+        destination = {
+          name: last.name,
+          address: last.address,
+          lat: last.lat,
+          lng: last.lng,
+        };
+        resolvedDestinationQuery = `Walking tour ending at ${last.name}`;
+        recommendations = orderedPlaces.slice(0, -1);
+      }
+    }
+  } else {
+    if (!trimmedQuery) {
+      throw new Error(
+        "Add a destination or pick recommendations on Explore to create a route.",
+      );
+    }
+
+    const geocoded = await geocodeDestination(apiKey, trimmedQuery, start);
+    if (!geocoded) {
+      throw new Error(
+        "Could not find that destination. Try a city or landmark name.",
+      );
+    }
+
+    destination = geocoded;
+    resolvedDestinationQuery = trimmedQuery;
+    const directMeters = haversineMeters(start, destination);
+    const samplePoints = sampleRoutePoints(start, destination, sampleCount);
+
+    const placeBatches = await Promise.all(
+      samplePoints.map((point) =>
+        searchRecommendations({
+          apiKey,
+          lat: point.lat,
+          lng: point.lng,
+          healthGoal: preferences.healthGoal,
+          interests: preferences.interests,
+          details: preferences.details,
+        }),
+      ),
+    );
+
+    const allPlaces = placeBatches.flat();
+    recommendations = healthOptimised
+      ? selectHealthOptimisedStops(
+          start,
+          destination,
+          allPlaces,
+          maxDetourMeters,
+          directMeters,
+          maxWalkMinutes,
+        )
+      : selectPlacesAlongRoute(
+          start,
+          destination,
+          allPlaces,
+          maxStops,
+          maxDetourMeters,
+        );
+  }
+
+  const initialStops = buildStops(start, destination, recommendations);
+  const walkingRoute = await buildWalkingRouteForStops(apiKey, initialStops);
   const routeStats = buildRouteStats(
     start,
     destination,
     recommendations,
-    totalDistanceMeters,
+    walkingRoute.totalDistanceMeters,
     healthOptimised,
     maxWalkMinutes,
   );
@@ -433,12 +612,12 @@ export async function buildTripPlan(
   return {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    destinationQuery,
+    destinationQuery: resolvedDestinationQuery,
     destination,
     start,
-    stops,
-    routePath,
-    totalDistanceMeters,
+    stops: walkingRoute.stops,
+    routePath: walkingRoute.routePath,
+    totalDistanceMeters: walkingRoute.totalDistanceMeters,
     routeStats,
   };
 }

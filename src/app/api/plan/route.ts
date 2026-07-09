@@ -1,22 +1,41 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
-import { geocodeDestination } from "@/lib/google-places";
 import { buildTripPlan } from "@/lib/route";
 import { isHealthOptimisedMode } from "@/lib/mode-preferences";
-import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
+import type {
+  HealthGoal,
+  Interest,
+  OnboardingDetails,
+  PlaceResult,
+} from "@/lib/types";
 
 type PlanRequest = {
   destinationQuery?: string;
+  destinationPlaceId?: string;
   startLat?: number;
   startLng?: number;
   startName?: string;
   healthGoal?: HealthGoal;
   interests?: Interest[];
   details?: OnboardingDetails;
+  recommendedPlaces?: PlaceResult[];
   healthOptimisedRoute?: boolean;
 };
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
+
+function isPlaceResult(value: unknown): value is PlaceResult {
+  if (!value || typeof value !== "object") return false;
+
+  const place = value as PlaceResult;
+  return (
+    typeof place.id === "string" &&
+    typeof place.name === "string" &&
+    typeof place.address === "string" &&
+    typeof place.lat === "number" &&
+    typeof place.lng === "number"
+  );
+}
 
 function isValidRequest(body: unknown): body is PlanRequest {
   if (!body || typeof body !== "object") return false;
@@ -25,10 +44,21 @@ function isValidRequest(body: unknown): body is PlanRequest {
   const normalizedInterests = Array.isArray(value.interests)
     ? normalizeInterests(value.interests as string[])
     : [];
+  const hasDestination =
+    typeof value.destinationQuery === "string" &&
+    value.destinationQuery.trim().length > 0;
+  const hasDestinationPlaceId =
+    typeof value.destinationPlaceId === "string" &&
+    value.destinationPlaceId.trim().length > 0;
+  const hasRecommendations =
+    Array.isArray(value.recommendedPlaces) &&
+    value.recommendedPlaces.length > 0 &&
+    value.recommendedPlaces.every(isPlaceResult);
 
   return (
-    typeof value.destinationQuery === "string" &&
-    value.destinationQuery.trim().length > 0 &&
+    (hasDestination ||
+      hasDestinationPlaceId ||
+      hasRecommendations) &&
     typeof value.startLat === "number" &&
     typeof value.startLng === "number" &&
     value.healthGoal !== undefined &&
@@ -37,7 +67,10 @@ function isValidRequest(body: unknown): body is PlanRequest {
     (value.interests as string[]).every(
       (interest) =>
         isInterest(interest) || interest === "history" || interest === "food",
-    )
+    ) &&
+    (value.recommendedPlaces === undefined ||
+      (Array.isArray(value.recommendedPlaces) &&
+        value.recommendedPlaces.every(isPlaceResult)))
   );
 }
 
@@ -56,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Invalid request. Provide destination, start coordinates, healthGoal, and interests.",
+          "Invalid request. Provide start coordinates, healthGoal, interests, and either Explore recommendations or a destination.",
       },
       { status: 400 },
     );
@@ -64,37 +97,24 @@ export async function POST(request: Request) {
 
   const {
     destinationQuery,
+    destinationPlaceId,
     startLat,
     startLng,
     startName,
     healthGoal,
     interests,
     details,
+    recommendedPlaces,
     healthOptimisedRoute,
   } = body;
 
-  const query = destinationQuery!.trim();
   const normalizedInterests = normalizeInterests(interests as string[]);
 
   try {
-    const destination = await geocodeDestination(
-      apiKey,
-      query,
-      { lat: startLat!, lng: startLng! },
-    );
-
-    if (!destination) {
-      return NextResponse.json(
-        { error: "Could not find that destination. Try a city or landmark name." },
-        { status: 404 },
-      );
-    }
-
     const plan = await buildTripPlan(
       apiKey,
-      query,
+      destinationQuery,
       { lat: startLat!, lng: startLng!, name: startName },
-      destination,
       {
         healthGoal: healthGoal!,
         interests: normalizedInterests,
@@ -103,19 +123,20 @@ export async function POST(request: Request) {
       {
         healthOptimisedRoute:
           healthOptimisedRoute === true || isHealthOptimisedMode(details),
+        recommendedPlaces,
+        destinationPlaceId: destinationPlaceId?.trim() || undefined,
       },
     );
 
     return NextResponse.json({ plan });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not build your trip plan.",
-      },
-      { status: 500 },
-    );
+    const message =
+      error instanceof Error ? error.message : "Could not build your trip plan.";
+
+    if (message.includes("Could not find that destination")) {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

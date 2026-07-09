@@ -15,6 +15,7 @@ import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
 import { SOCIAL_VIBE_OPTIONS, TIME_BUDGET_OPTIONS } from "@/lib/onboarding";
 import { getSearchRadiusMeters } from "@/lib/places";
 import type { JourneyMode, PlaceResult, UserPreferences } from "@/lib/types";
+import { saveRecommendedPlaces } from "@/lib/recommended-places";
 import { AppHeader } from "@/components/AppHeader";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { PlaceMap } from "@/components/explore/PlaceMap";
@@ -37,6 +38,13 @@ export default function ExplorePage() {
     null,
   );
   const [modeSaving, setModeSaving] = useState(false);
+  const [distanceSpread, setDistanceSpread] = useState<{
+    minMeters: number | null;
+    maxMeters: number | null;
+  } | null>(null);
+  const [journeyPlaceIds, setJourneyPlaceIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const loadPlaces = useCallback(
     async (position: Coordinates, prefs: UserPreferences) => {
@@ -55,6 +63,10 @@ export default function ExplorePage() {
       const data = (await response.json()) as {
         places?: PlaceResult[];
         searchRadiusMeters?: number;
+        distanceSpread?: {
+          minMeters: number | null;
+          maxMeters: number | null;
+        };
         error?: string;
       };
 
@@ -64,7 +76,10 @@ export default function ExplorePage() {
 
       setPlaces(data.places ?? []);
       setSearchRadiusMeters(data.searchRadiusMeters ?? null);
+      setDistanceSpread(data.distanceSpread ?? null);
       setSelectedPlaceId(data.places?.[0]?.id ?? null);
+      const allIds = new Set((data.places ?? []).map((place) => place.id));
+      setJourneyPlaceIds(allIds);
     },
     [],
   );
@@ -133,6 +148,24 @@ export default function ExplorePage() {
 
     init();
   }, [router, requestLocation]);
+
+  function handleToggleJourneyPlace(placeId: string) {
+    setJourneyPlaceIds((current) => {
+      const next = new Set(current);
+      if (next.has(placeId)) {
+        next.delete(placeId);
+      } else {
+        next.add(placeId);
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!coords || places.length === 0) return;
+
+    saveRecommendedPlaces(coords, places, Array.from(journeyPlaceIds));
+  }, [coords, places, journeyPlaceIds]);
 
   async function handleStartOver() {
     await clearPreferences();
@@ -215,6 +248,18 @@ export default function ExplorePage() {
     (preferences
       ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
       : null);
+  const formatDistance = (meters: number) =>
+    meters >= 1000
+      ? `${(meters / 1000).toFixed(1)} km`
+      : `${meters} m`;
+  const minDistance = distanceSpread?.minMeters;
+  const maxDistance = distanceSpread?.maxMeters;
+  const spreadLabel =
+    minDistance != null && maxDistance != null && minDistance !== maxDistance
+      ? `Results span ${formatDistance(minDistance)}–${formatDistance(maxDistance)}`
+      : maxDistance != null
+        ? `Farthest pick is ${formatDistance(maxDistance)} away`
+        : null;
 
   return (
     <div className="flex flex-1 flex-col bg-background font-sans">
@@ -247,19 +292,21 @@ export default function ExplorePage() {
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-4">
         <Link
-          href="/plan"
+          href="/plan?create=1"
           className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
         >
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-              Planning a journey?
+              Create your walking route
             </span>
             <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-              Tell us where you&apos;re headed and we&apos;ll weave recommendations into your route.
+              {journeyPlaceIds.size > 0
+                ? `Build a route through your ${journeyPlaceIds.size} selected recommendation${journeyPlaceIds.size === 1 ? "" : "s"}.`
+                : "Select recommendations below, then create your route."}
             </span>
           </div>
           <span className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            Journal planner →
+            Create route →
           </span>
         </Link>
 
@@ -306,20 +353,30 @@ export default function ExplorePage() {
             </section>
 
             <section className="flex flex-1 flex-col gap-4 lg:max-w-md">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium tracking-tight text-foreground">
-                  Recommendations
-                </h2>
-                {loading && (
-                  <span className="text-sm uppercase tracking-wider text-muted">
-                    Loading...
-                  </span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium tracking-tight text-foreground">
+                    Recommendations
+                  </h2>
+                  {loading && (
+                    <span className="text-sm uppercase tracking-wider text-muted">
+                      Loading...
+                    </span>
+                  )}
+                </div>
+                {spreadLabel && (
+                  <p className="text-sm text-muted">{spreadLabel}</p>
                 )}
+                <p className="text-sm text-muted">
+                  Check the places you want on your journey route.
+                </p>
               </div>
               <PlaceList
                 places={places}
                 selectedPlaceId={selectedPlaceId}
                 onSelectPlace={handleSelectPlace}
+                journeyPlaceIds={journeyPlaceIds}
+                onToggleJourneyPlace={handleToggleJourneyPlace}
               />
             </section>
           </>

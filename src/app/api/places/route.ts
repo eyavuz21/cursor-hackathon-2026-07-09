@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
-import { getSearchRadiusMeters, searchRecommendations } from "@/lib/places";
+import { getSearchRadiusMeters, getPlaceDistanceSpread, searchRecommendations } from "@/lib/places";
 import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
 
 type PlacesRequest = {
@@ -64,8 +64,13 @@ export async function POST(request: Request) {
       interests: normalizedInterests,
       details,
     });
+    const distanceSpread = getPlaceDistanceSpread(places);
 
-    return NextResponse.json({ places, searchRadiusMeters });
+    return NextResponse.json({
+      places,
+      searchRadiusMeters,
+      distanceSpread,
+    });
   } catch (error) {
     return NextResponse.json(
       {
