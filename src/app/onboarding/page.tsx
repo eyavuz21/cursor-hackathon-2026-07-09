@@ -14,22 +14,34 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [healthGoal, setHealthGoal] = useState<HealthGoal | null>(null);
   const [interests, setInterests] = useState<Interest[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleNext() {
+  async function handleNext() {
     if (step === 1 && healthGoal) {
       setStep(2);
       return;
     }
 
     if (step === 2 && healthGoal && interests.length > 0) {
-      savePreferences({ healthGoal, interests });
-      router.push("/explore");
+      setSaving(true);
+      setError(null);
+
+      try {
+        await savePreferences({ healthGoal, interests });
+        router.push("/explore");
+      } catch {
+        setError("Could not save your preferences. Please try again.");
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
   function handleBack() {
     if (step > 1) {
       setStep(step - 1);
+      setError(null);
     }
   }
 
@@ -70,12 +82,19 @@ export default function OnboardingPage() {
           <InterestsStep value={interests} onChange={setInterests} />
         )}
 
+        {error && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </p>
+        )}
+
         <div className="flex gap-3">
           {step > 1 && (
             <button
               type="button"
               onClick={handleBack}
-              className="rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              disabled={saving}
+              className="rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
               Back
             </button>
@@ -83,10 +102,14 @@ export default function OnboardingPage() {
           <button
             type="button"
             onClick={handleNext}
-            disabled={!canContinue}
+            disabled={!canContinue || saving}
             className="flex-1 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {step === TOTAL_STEPS ? "Find places" : "Continue"}
+            {saving
+              ? "Saving..."
+              : step === TOTAL_STEPS
+                ? "Find places"
+                : "Continue"}
           </button>
         </div>
       </main>

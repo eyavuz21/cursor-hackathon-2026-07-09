@@ -22,7 +22,7 @@ flowchart TD
   Home -->|has prefs| Explore["/explore"]
   Onboarding --> Step1["Step 1: Health goals"]
   Step1 --> Step2["Step 2: Interests"]
-  Step2 -->|save to localStorage| Explore
+  Step2 -->|save to Supabase| Explore
   Explore --> Geo["Browser geolocation"]
   Geo --> API["POST /api/places"]
   API --> Places["Google Places searchNearby"]
@@ -41,7 +41,7 @@ flowchart TD
 - Browser geolocation
 - Server-side Places API proxy
 - Explore page: Google Map + scrollable recommendation list
-- Preferences in `localStorage` (no database)
+- Preferences in **Supabase** (`user_preferences` table, anonymous auth)
 - "Start over" to clear prefs
 
 ### Out of scope (cut if late)
@@ -103,7 +103,23 @@ export type PlaceResult = {
 // or on error: { error: string }
 ```
 
-**localStorage key:** `wander-preferences` → JSON `UserPreferences`
+**Storage:** Supabase `user_preferences` table, keyed by anonymous `auth.users.id`
+
+```sql
+-- see supabase/schema.sql
+user_id uuid PK → auth.users
+health_goal text  -- gentle | moderate | active
+interests text[]  -- history | food
+```
+
+**Preferences API** (client-side via `src/lib/preferences.ts`):
+
+```ts
+await getPreferences(): Promise<UserPreferences | null>
+await savePreferences(prefs: UserPreferences): Promise<void>
+await clearPreferences(): Promise<void>
+getRadiusMeters(healthGoal): number  // sync helper
+```
 
 ---
 
@@ -116,7 +132,9 @@ export type PlaceResult = {
 | File | Purpose |
 |------|---------|
 | [`src/lib/types.ts`](src/lib/types.ts) | Shared types (create first if not done) |
-| [`src/lib/preferences.ts`](src/lib/preferences.ts) | `getPreferences`, `savePreferences`, `clearPreferences`, `getRadiusMeters` |
+| [`src/lib/preferences.ts`](src/lib/preferences.ts) | Async Supabase read/write, `getRadiusMeters` |
+| [`src/lib/supabase/client.ts`](src/lib/supabase/client.ts) | Browser Supabase client |
+| [`supabase/schema.sql`](supabase/schema.sql) | `user_preferences` table + RLS policies |
 | [`src/app/onboarding/page.tsx`](src/app/onboarding/page.tsx) | 2-step client wizard |
 | [`src/components/onboarding/HealthStep.tsx`](src/components/onboarding/HealthStep.tsx) | Radio cards for health goals |
 | [`src/components/onboarding/InterestsStep.tsx`](src/components/onboarding/InterestsStep.tsx) | Toggle chips for history / food |
@@ -127,24 +145,24 @@ export type PlaceResult = {
 
 1. **Shared types** — create `src/lib/types.ts` (if not already done)
 2. **Preferences lib** — `src/lib/preferences.ts`:
-   - `getPreferences(): UserPreferences | null`
-   - `savePreferences(prefs: UserPreferences): void`
-   - `clearPreferences(): void`
+   - Uses Supabase anonymous auth (auto sign-in on first visit)
+   - `getPreferences()` / `savePreferences()` / `clearPreferences()` — async, backed by `user_preferences` table
    - `getRadiusMeters(healthGoal): number` — lookup table from preference model above
-3. **Onboarding wizard** — `"use client"` multi-step form at `/onboarding`:
+3. **Supabase setup** — run `supabase/schema.sql` in SQL Editor; enable Anonymous sign-ins in Auth settings
+4. **Onboarding wizard** — `"use client"` multi-step form at `/onboarding`:
    - Step 1: 3 radio-style cards (gentle / moderate / active) with short copy ("~10 min walk", etc.)
    - Step 2: multi-select chips for History and Food (require ≥ 1)
    - Progress indicator ("Step 1 of 2")
-   - On finish: `savePreferences()` → `router.push("/explore")`
+   - On finish: `await savePreferences()` → `router.push("/explore")`
    - Match zinc/emerald Tailwind aesthetic from existing scaffold
-4. **Home redirect** — update `src/app/page.tsx`:
+5. **Home redirect** — update `src/app/page.tsx`:
    - If prefs exist → redirect `/explore`
    - Else → redirect `/onboarding`
-5. **Layout metadata** — update `src/app/layout.tsx` title/description
+6. **Layout metadata** — update `src/app/layout.tsx` title/description
 
 ### Person A done when
 
-- [ ] `/onboarding` works end-to-end and saves prefs to localStorage
+- [ ] `/onboarding` works end-to-end and saves prefs to Supabase
 - [ ] `/` routes correctly based on whether prefs exist
 - [ ] `getRadiusMeters()` returns correct values for all 3 health goals
 
@@ -199,7 +217,7 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_browser_key
    - `maxResultCount: 10`, `rankPreference: DISTANCE`
    - Return `{ places: PlaceResult[] }`
 3. **Explore page** — `/explore`:
-   - On mount: read prefs from localStorage; redirect to `/onboarding` if missing
+   - On mount: `await getPreferences()`; redirect to `/onboarding` if missing
    - `navigator.geolocation.getCurrentPosition` for lat/lng
    - Fetch `POST /api/places` with coords + prefs
    - Header: show radius + interests; **"Start over"** calls `clearPreferences()` → `/onboarding`

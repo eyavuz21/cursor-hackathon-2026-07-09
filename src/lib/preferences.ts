@@ -1,6 +1,5 @@
 import type { HealthGoal, Interest, UserPreferences } from "./types";
-
-export const PREFERENCES_STORAGE_KEY = "wander-preferences";
+import { createClient } from "./supabase/client";
 
 const RADIUS_METERS: Record<HealthGoal, number> = {
   gentle: 800,
@@ -8,35 +7,97 @@ const RADIUS_METERS: Record<HealthGoal, number> = {
   active: 5000,
 };
 
+type PreferencesRow = {
+  health_goal: HealthGoal;
+  interests: Interest[];
+};
+
 export function getRadiusMeters(healthGoal: HealthGoal): number {
   return RADIUS_METERS[healthGoal];
 }
 
-export function getPreferences(): UserPreferences | null {
-  if (typeof window === "undefined") return null;
+async function ensureSession() {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  const raw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as UserPreferences;
-    if (!parsed.healthGoal || !Array.isArray(parsed.interests)) return null;
-    if (parsed.interests.length === 0) return null;
-    return parsed;
-  } catch {
-    return null;
+  if (!session) {
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) throw error;
   }
+
+  return supabase;
 }
 
-export function savePreferences(preferences: UserPreferences): void {
-  window.localStorage.setItem(
-    PREFERENCES_STORAGE_KEY,
-    JSON.stringify(preferences),
+function parsePreferencesRow(row: PreferencesRow): UserPreferences | null {
+  if (!row.health_goal || !Array.isArray(row.interests)) return null;
+  if (row.interests.length === 0) return null;
+
+  return {
+    healthGoal: row.health_goal,
+    interests: row.interests,
+  };
+}
+
+export async function getPreferences(): Promise<UserPreferences | null> {
+  const supabase = await ensureSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("user_preferences")
+    .select("health_goal, interests")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return parsePreferencesRow(data as PreferencesRow);
+}
+
+export async function savePreferences(
+  preferences: UserPreferences,
+): Promise<void> {
+  const supabase = await ensureSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("No authenticated user");
+  }
+
+  const { error } = await supabase.from("user_preferences").upsert(
+    {
+      user_id: user.id,
+      health_goal: preferences.healthGoal,
+      interests: preferences.interests,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
   );
+
+  if (error) throw error;
 }
 
-export function clearPreferences(): void {
-  window.localStorage.removeItem(PREFERENCES_STORAGE_KEY);
+export async function clearPreferences(): Promise<void> {
+  const supabase = await ensureSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("user_preferences")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) throw error;
 }
 
 export const HEALTH_GOAL_OPTIONS: {
