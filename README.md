@@ -108,7 +108,7 @@ Legacy URLs (`/explore`, `/plan`, `/shop`) redirect into `/journey` for backward
 
 > **Don't pitch "a map with filters."** Pitch a tool that humanises urban transit.
 >
-> Wander reclaims the dead time spent moving through cities for **mental health** (MentalClear), **community wealth** (SocialExplore), and **physical vitality** (HealthOptimised) — plus a spatial errand layer that weaves live-priced shopping into the route itself.
+> Wander reclaims the dead time spent moving through cities for **mental health** (MentalClear), **community wealth** (SocialExplore), and **physical vitality** (HealthOptimised) — plus optional **parking** and **errand** layers on one journey: car parks and supermarkets woven into your route, with live prices from a single LinkUp key.
 
 **Why judges should care:** the product sits at the intersection of urban mobility, mental well-being, and local economic resilience — three problems that got worse after the pandemic and are still unsolved by incumbents optimising for ETA alone.
 
