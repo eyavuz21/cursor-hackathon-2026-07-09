@@ -60,6 +60,8 @@ export type GeocodedDestination = {
   address: string;
   lat: number;
   lng: number;
+  placeId?: string;
+  googleMapsUri?: string;
 };
 
 export type JournalStopType = "start" | "recommendation" | "destination";

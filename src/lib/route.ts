@@ -357,6 +357,17 @@ function buildRouteStats(
   };
 }
 
+function placeToDestination(place: PlaceResult): GeocodedDestination {
+  return {
+    name: place.name,
+    address: place.address,
+    lat: place.lat,
+    lng: place.lng,
+    placeId: place.id,
+    googleMapsUri: place.googleMapsUri,
+  };
+}
+
 function buildStops(
   start: LatLng & { name?: string },
   destination: GeocodedDestination,
@@ -369,6 +380,8 @@ function buildStops(
     lat: number;
     lng: number;
     place?: PlaceResult;
+    placeId?: string;
+    googleMapsUri?: string;
   }> = [
     {
       type: "start",
@@ -391,6 +404,8 @@ function buildStops(
       address: destination.address,
       lat: destination.lat,
       lng: destination.lng,
+      placeId: destination.placeId,
+      googleMapsUri: destination.googleMapsUri,
     },
   ];
 
@@ -410,9 +425,9 @@ function buildStops(
       address: point.address,
       lat: point.lat,
       lng: point.lng,
-      placeId: point.place?.id,
+      placeId: point.place?.id ?? point.placeId,
       rating: point.place?.rating,
-      googleMapsUri: point.place?.googleMapsUri,
+      googleMapsUri: point.place?.googleMapsUri ?? point.googleMapsUri,
       distanceFromPreviousMeters: previous
         ? haversineMeters(previous, point)
         : undefined,
@@ -491,12 +506,7 @@ export async function buildTripPlan(
       : undefined;
 
     if (destinationPick) {
-      destination = {
-        name: destinationPick.name,
-        address: destinationPick.address,
-        lat: destinationPick.lat,
-        lng: destinationPick.lng,
-      };
+      destination = placeToDestination(destinationPick);
       resolvedDestinationQuery = destinationPick.name;
 
       const waypointPool = recommendedPlaces.filter(
@@ -527,22 +537,12 @@ export async function buildTripPlan(
 
       if (orderedPlaces.length === 1) {
         const only = orderedPlaces[0];
-        destination = {
-          name: only.name,
-          address: only.address,
-          lat: only.lat,
-          lng: only.lng,
-        };
+        destination = placeToDestination(only);
         resolvedDestinationQuery = only.name;
         recommendations = [];
       } else {
         const last = orderedPlaces[orderedPlaces.length - 1];
-        destination = {
-          name: last.name,
-          address: last.address,
-          lat: last.lat,
-          lng: last.lng,
-        };
+        destination = placeToDestination(last);
         resolvedDestinationQuery = `Walking tour ending at ${last.name}`;
         recommendations = orderedPlaces.slice(0, -1);
       }

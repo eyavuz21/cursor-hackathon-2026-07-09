@@ -1,5 +1,6 @@
 import { formatDistance } from "@/lib/route";
 import { getGoogleMapsUrl } from "@/lib/google-maps-url";
+import { getStopLetter } from "@/lib/stop-labels";
 import type { JournalStop } from "@/lib/types";
 
 type JournalTimelineProps = {
@@ -24,8 +25,6 @@ export function JournalTimeline({
   selectedStopId,
   onSelectStop,
 }: JournalTimelineProps) {
-  let recommendationIndex = 0;
-
   return (
     <ol className="flex flex-col gap-0">
       {stops.map((stop, index) => {
@@ -36,11 +35,8 @@ export function JournalTimeline({
           lat: stop.lat,
           lng: stop.lng,
           name: stop.name,
+          placeId: stop.placeId,
         });
-
-        if (stop.type === "recommendation") {
-          recommendationIndex += 1;
-        }
 
         return (
           <li key={stop.id} id={`journal-stop-${stop.id}`} className="flex gap-4">
@@ -48,17 +44,15 @@ export function JournalTimeline({
               <button
                 type="button"
                 onClick={() => onSelectStop(stop.id)}
-                className={`flex h-9 w-9 shrink-0 items-center justify-center border-2 text-xs font-medium transition-colors ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors ${
                   selected
-                    ? "border-foreground bg-foreground text-background"
-                    : stop.type === "start"
-                      ? "border-foreground bg-foreground text-background"
-                      : stop.type === "destination"
-                        ? "border-muted bg-muted text-background"
-                        : "border-foreground bg-foreground text-background"
+                    ? "border-[#1a73e8] bg-[#1a73e8] text-white"
+                    : stop.type === "destination"
+                      ? "border-[#d93025] bg-white text-[#d93025]"
+                      : "border-[#1a73e8] bg-white text-[#1a73e8]"
                 }`}
               >
-                {stop.type === "recommendation" ? recommendationIndex : "•"}
+                {getStopLetter(index)}
               </button>
               {!isLast && (
                 <span className="my-1 w-px flex-1 bg-border" />
