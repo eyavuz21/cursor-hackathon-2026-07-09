@@ -174,6 +174,7 @@ export default function ExplorePage() {
 
   async function handleModeChange(mode: JourneyMode) {
     if (!preferences || !coords || modeSaving) return;
+    if (getJourneyMode(preferences.details) === mode) return;
 
     setModeSaving(true);
     setError(null);
@@ -181,7 +182,6 @@ export default function ExplorePage() {
     try {
       const updated = await updateJourneyMode(mode);
       setPreferences(updated);
-      setLoading(true);
       await loadPlaces(coords, updated);
     } catch (modeError) {
       setError(
@@ -191,7 +191,6 @@ export default function ExplorePage() {
       );
     } finally {
       setModeSaving(false);
-      setLoading(false);
     }
   }
 
@@ -311,12 +310,17 @@ export default function ExplorePage() {
         </Link>
 
         {preferences && (
-          <div className="mt-4">
+          <div className="relative mt-4">
             <JourneyModeToggle
               value={getJourneyMode(preferences.details)}
               onChange={handleModeChange}
               disabled={modeSaving || loading}
             />
+            {modeSaving && (
+              <p className="mt-2 text-sm text-muted">
+                Updating recommendations...
+              </p>
+            )}
           </div>
         )}
       </div>
