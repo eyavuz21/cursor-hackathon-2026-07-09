@@ -73,14 +73,34 @@ Without `LINKUP_API_KEY`, the planner still works but falls back to route-based 
 
 ---
 
+## Optional parking add-on
+
+Inspired by [ParkAndSave](https://github.com/eyavuz21/ParkAndSave), Wander can also find **car parks near your journey destination** — useful when you drive part of the way and walk the rest.
+
+| Mode | What it optimises for |
+|------|------------------------|
+| **Cheapest** | Lowest hourly rate when LinkUp live prices are available |
+| **Nearest** | Closest car park to your destination |
+
+**How it works (inside `/journey`):**
+
+1. Pick a destination, then expand **Add parking**
+2. Wander finds real car parks via **OpenStreetMap** near your destination
+3. With `LINKUP_API_KEY`, **LinkUp** fetches live hourly parking rates from the web
+4. Compare options with distance, detour, and price — open driving directions in Google Maps
+
+Without `LINKUP_API_KEY`, car parks are still listed but ranked by distance only.
+
+---
+
 ## What you can do in the app
 
 | Page | Purpose |
 |------|---------|
 | [`/onboarding`](https://cursor-hackathon-2026-07-09.vercel.app/onboarding) | Mode-first setup: pick MentalClear, SocialExplore, or HealthOptimised → one follow-up question → launch |
-| [`/journey`](https://cursor-hackathon-2026-07-09.vercel.app/journey) | **One unified flow:** discover places on the map → optionally add errands → build your walking route → review and save |
+| [`/journey`](https://cursor-hackathon-2026-07-09.vercel.app/journey) | **One unified flow:** discover places on the map → optionally add parking or errands → build your walking route → review and save |
 
-Legacy URLs (`/explore`, `/plan`, `/shop`) redirect into `/journey` for backward compatibility.
+Legacy URLs (`/explore`, `/plan`, `/shop`) redirect into `/journey` for backward compatibility (`?errands=1` or `?parking=1` opens the relevant add-on).
 
 ---
 
@@ -99,8 +119,8 @@ Legacy URLs (`/explore`, `/plan`, `/shop`) redirect into `/journey` for backward
 - **Next.js 16** (App Router) · **React 19** · **TypeScript** · **Tailwind CSS 4**
 - **Supabase** — anonymous auth + `user_preferences`
 - **Google Places API (New)** — recommendations, geocoding, walking directions
-- **OpenStreetMap / Overpass** — supermarket discovery for the shopping planner
-- **LinkUp** — live web-sourced grocery prices for the optional errands add-on
+- **OpenStreetMap / Overpass** — supermarket and car park discovery
+- **LinkUp** — live web-sourced grocery and parking prices
 
 ---
 
@@ -124,7 +144,7 @@ Add to `.env.local` and [Vercel project settings](https://vercel.com/boyle/curso
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `GOOGLE_MAPS_API_KEY` | Server-side Places + Directions |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client-side Maps JS |
-| `LINKUP_API_KEY` | Live grocery prices for errands (optional — get one at [app.linkup.so](https://app.linkup.so)) |
+| `LINKUP_API_KEY` | Live grocery and parking prices (optional — get one at [app.linkup.so](https://app.linkup.so)) |
 
 ### Supabase setup
 

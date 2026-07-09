@@ -7,6 +7,7 @@ import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
 import { ErrandsPanel } from "@/components/journey/ErrandsPanel";
+import { ParkingPanel } from "@/components/journey/ParkingPanel";
 import { DestinationPicker } from "@/components/plan/DestinationPicker";
 import { JournalTimeline } from "@/components/plan/JournalTimeline";
 import { PlanMap } from "@/components/plan/PlanMap";
@@ -80,6 +81,7 @@ export default function JourneyPage() {
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [errandsOpen, setErrandsOpen] = useState(false);
+  const [parkingOpen, setParkingOpen] = useState(false);
 
   const recommendedPlaces = rankPlacesForJourney(
     places.filter((place) => journeyPlaceIds.has(place.id)),
@@ -193,6 +195,9 @@ export default function JourneyPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get("errands") === "1") {
           setErrandsOpen(true);
+        }
+        if (params.get("parking") === "1") {
+          setParkingOpen(true);
         }
       } catch (initError) {
         setError(
@@ -596,6 +601,13 @@ export default function JourneyPage() {
 
         {!plan && phase === "ready" && coords && preferences && (
           <div className="flex flex-col gap-6 wander-screen-enter">
+            <ParkingPanel
+              coords={coords}
+              preferences={preferences}
+              destinationQuery={destinationName}
+              defaultOpen={parkingOpen}
+            />
+
             <ErrandsPanel
               coords={coords}
               preferences={preferences}
