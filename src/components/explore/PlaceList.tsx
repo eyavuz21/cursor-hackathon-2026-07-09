@@ -13,7 +13,7 @@ export function PlaceList({
 }: PlaceListProps) {
   if (places.length === 0) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+      <div className="brand-card p-6 text-center text-sm text-muted">
         No 4.5+ star places matched your interests within your search radius.
         Try picking more interests or a wider walk radius.
       </div>
@@ -33,33 +33,31 @@ export function PlaceList({
             <button
               type="button"
               onClick={() => onSelectPlace(place.id)}
-              className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                selected
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-950/40"
-                  : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
+              className={`brand-card w-full p-4 text-left ${
+                selected ? "brand-card-selected" : "hover:border-muted"
               }`}
             >
               <div className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-foreground text-xs font-medium text-background">
                   {index + 1}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                  <span className="font-medium text-foreground">
                     {place.name}
                   </span>
                   {place.address && (
-                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <span className="text-sm text-muted">
                       {place.address}
                     </span>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     {place.rating !== undefined && (
-                      <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                      <span className="text-sm text-muted">
                         ★ {place.rating.toFixed(1)}
                       </span>
                     )}
                     {place.distanceMeters !== undefined && (
-                      <span className="text-sm text-zinc-500 dark:text-zinc-500">
+                      <span className="text-sm text-muted">
                         {place.distanceMeters >= 1000
                           ? `${(place.distanceMeters / 1000).toFixed(1)} km away`
                           : `${place.distanceMeters} m away`}
@@ -70,7 +68,7 @@ export function PlaceList({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}
-                      className="text-sm font-medium text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
+                      className="brand-link text-sm"
                     >
                       Open in Google Maps →
                     </a>

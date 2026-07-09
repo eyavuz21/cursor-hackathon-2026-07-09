@@ -24,13 +24,9 @@ export function HealthFollowUpStep({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <p className="font-mono text-xs uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-          Based on your pace
-        </p>
-        <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          {title}
-        </h2>
-        <p className="text-zinc-600 dark:text-zinc-400">{subtitle}</p>
+        <p className="brand-label">Based on your pace</p>
+        <h2 className="brand-heading">{title}</h2>
+        <p className="text-muted">{subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -42,18 +38,16 @@ export function HealthFollowUpStep({
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`onboarding-animate-fade-up rounded-2xl border p-4 text-left transition-colors ${
-                selected
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-950/40"
-                  : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
+              className={`onboarding-animate-fade-up brand-card p-4 text-left ${
+                selected ? "brand-card-selected" : "hover:border-muted"
               }`}
               style={{ animationDelay: `${index * 0.08}s` }}
             >
               <div className="flex flex-col gap-1">
-                <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                <span className="font-medium text-foreground">
                   {option.label}
                 </span>
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                <span className="text-sm text-muted">
                   {option.description}
                 </span>
               </div>
