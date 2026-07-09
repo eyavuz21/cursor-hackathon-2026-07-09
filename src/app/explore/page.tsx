@@ -290,25 +290,6 @@ export default function ExplorePage() {
       />
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-4">
-        <Link
-          href="/plan?create=1"
-          className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
-        >
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-              Create your walking route
-            </span>
-            <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-              {journeyPlaceIds.size > 0
-                ? `Build a route through your ${journeyPlaceIds.size} selected recommendation${journeyPlaceIds.size === 1 ? "" : "s"}.`
-                : "Select recommendations below, then create your route."}
-            </span>
-          </div>
-          <span className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            Create route →
-          </span>
-        </Link>
-
         {preferences && (
           <div className="relative mt-4">
             <JourneyModeToggle
@@ -372,7 +353,7 @@ export default function ExplorePage() {
                   <p className="text-sm text-muted">{spreadLabel}</p>
                 )}
                 <p className="text-sm text-muted">
-                  Check the places you want on your journey route.
+                  Pick the places you want, then create your route below.
                 </p>
               </div>
               <PlaceList
@@ -382,6 +363,23 @@ export default function ExplorePage() {
                 journeyPlaceIds={journeyPlaceIds}
                 onToggleJourneyPlace={handleToggleJourneyPlace}
               />
+              <Link
+                href="/plan?create=1"
+                className={`brand-button-primary inline-flex w-full justify-center ${
+                  journeyPlaceIds.size === 0 ? "pointer-events-none opacity-50" : ""
+                }`}
+                aria-disabled={journeyPlaceIds.size === 0}
+                onClick={(event) => {
+                  if (journeyPlaceIds.size === 0) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                Create route
+                {journeyPlaceIds.size > 0
+                  ? ` (${journeyPlaceIds.size} selected)`
+                  : ""}
+              </Link>
             </section>
           </>
         )}
