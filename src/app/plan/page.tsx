@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { JournalTimeline } from "@/components/plan/JournalTimeline";
@@ -29,6 +29,7 @@ type Coordinates = {
 
 export default function PlanPage() {
   const router = useRouter();
+  const autoCreateAttempted = useRef(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [coords, setCoords] = useState<Coordinates | null>(null);
   const [destinationQuery, setDestinationQuery] = useState("");
@@ -141,74 +142,103 @@ export default function PlanPage() {
     void init();
   }, [loadRecommendedPlaces, requestLocation, router]);
 
-  async function handleCreatePlan(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const handleCreatePlan = useCallback(
+    async (
+      event?: React.FormEvent<HTMLFormElement>,
+      options?: { destinationOverride?: string },
+    ) => {
+      event?.preventDefault();
 
-    if (!preferences || !coords) return;
+      if (!preferences || !coords) return;
 
-    const query = destinationQuery.trim();
-    if (!query) {
-      setError("Tell us where you want to go.");
-      return;
-    }
+      const query = (options?.destinationOverride ?? destinationQuery).trim();
 
-    if (recommendedPlaces.length === 0) {
-      setError(
-        "No recommendations to plan with yet. Visit Explore first or refresh to load nearby picks.",
-      );
-      return;
-    }
-
-    setPlanning(true);
-    setError(null);
-    setSavedMessage(null);
-
-    try {
-      const response = await fetch("/api/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destinationQuery: query,
-          startLat: coords.lat,
-          startLng: coords.lng,
-          startName: "Your location",
-          healthGoal: preferences.healthGoal,
-          interests: preferences.interests,
-          details: preferences.details,
-          recommendedPlaces,
-        }),
-      });
-
-      const data = (await response.json()) as {
-        plan?: TripPlan;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Could not build your route.");
-      }
-
-      const nextPlan = data.plan ?? null;
-      setPlan(nextPlan);
-      setSelectedStopId(nextPlan?.stops[1]?.id ?? nextPlan?.stops[0]?.id ?? null);
-
-      const recommendationStops =
-        nextPlan?.stops.filter((stop) => stop.type === "recommendation").length ?? 0;
-      if (nextPlan && recommendationStops === 0) {
+      if (recommendedPlaces.length === 0) {
         setError(
-          "Your route was created, but none of your Explore picks fit along the way to that destination. Try a closer landmark or update your selections on Explore.",
+          "No recommendations to plan with yet. Visit Explore first or refresh to load nearby picks.",
         );
+        return;
       }
-    } catch (planError) {
-      setError(
-        planError instanceof Error
-          ? planError.message
-          : "Could not build your route.",
-      );
-    } finally {
-      setPlanning(false);
+
+      setPlanning(true);
+      setError(null);
+      setSavedMessage(null);
+
+      try {
+        const response = await fetch("/api/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destinationQuery: query || undefined,
+            startLat: coords.lat,
+            startLng: coords.lng,
+            startName: "Your location",
+            healthGoal: preferences.healthGoal,
+            interests: preferences.interests,
+            details: preferences.details,
+            recommendedPlaces,
+          }),
+        });
+
+        const data = (await response.json()) as {
+          plan?: TripPlan;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Could not build your route.");
+        }
+
+        const nextPlan = data.plan ?? null;
+        setPlan(nextPlan);
+        setSelectedStopId(
+          nextPlan?.stops[1]?.id ?? nextPlan?.stops[0]?.id ?? null,
+        );
+
+        const recommendationStops =
+          nextPlan?.stops.filter((stop) => stop.type === "recommendation")
+            .length ?? 0;
+        if (nextPlan && recommendationStops === 0 && query) {
+          setError(
+            "Your walking route is ready, but it goes straight to that destination without extra Explore stops.",
+          );
+        }
+      } catch (planError) {
+        setError(
+          planError instanceof Error
+            ? planError.message
+            : "Could not build your route.",
+        );
+      } finally {
+        setPlanning(false);
+      }
+    },
+    [coords, destinationQuery, preferences, recommendedPlaces],
+  );
+
+  useEffect(() => {
+    if (
+      autoCreateAttempted.current ||
+      loading ||
+      planning ||
+      plan ||
+      recommendedPlaces.length === 0
+    ) {
+      return;
     }
-  }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") !== "1") return;
+
+    autoCreateAttempted.current = true;
+    void handleCreatePlan();
+  }, [
+    handleCreatePlan,
+    loading,
+    plan,
+    planning,
+    recommendedPlaces.length,
+  ]);
 
   function handleSelectStop(stopId: string) {
     setSelectedStopId(stopId);
@@ -309,9 +339,9 @@ export default function PlanPage() {
                 Plan your outing
               </h1>
               <p className="text-sm leading-relaxed text-muted">
-                Tell us where you want to go. We&apos;ll weave your Explore
-                recommendations into the route based on your walking pace and
-                interests.
+                We&apos;ll create a walking route through your Explore picks,
+                ordered for the shortest path. Add an optional final destination
+                if you want to end somewhere specific.
               </p>
               {loadingRecommendations ? (
                 <p className="text-sm text-muted">Loading your recommendations...</p>
@@ -335,23 +365,27 @@ export default function PlanPage() {
               )}
             </div>
 
-            <form onSubmit={handleCreatePlan} className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                value={destinationQuery}
-                onChange={(event) => setDestinationQuery(event.target.value)}
-                placeholder="e.g. British Museum, Edinburgh, Camden Market"
-                className="flex-1 border border-border bg-accent-subtle px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground"
-              />
-              <button
-                type="submit"
-                disabled={
-                  planning || !destinationQuery.trim() || recommendedPlaces.length === 0
-                }
-                className="brand-button-primary whitespace-nowrap"
-              >
-                {planning ? "Building route..." : "Build journal route"}
-              </button>
+            <form onSubmit={handleCreatePlan} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  value={destinationQuery}
+                  onChange={(event) => setDestinationQuery(event.target.value)}
+                  placeholder="Optional final destination (e.g. British Museum)"
+                  className="flex-1 border border-border bg-accent-subtle px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground"
+                />
+                <button
+                  type="submit"
+                  disabled={planning || recommendedPlaces.length === 0}
+                  className="brand-button-primary whitespace-nowrap"
+                >
+                  {planning ? "Creating route..." : "Create walking route"}
+                </button>
+              </div>
+              <p className="text-sm text-muted">
+                Leave the destination blank to build a local route through your
+                selected recommendations.
+              </p>
             </form>
 
             {error && (
@@ -427,9 +461,10 @@ export default function PlanPage() {
                     Your journal route
                   </h2>
                   <p className="text-sm text-muted">
-                    {plan.destination.name} · {formatDistance(plan.totalDistanceMeters)} with
+                    {formatDistance(plan.totalDistanceMeters)} walking route ·{" "}
                     {plan.stops.filter((stop) => stop.type === "recommendation").length}{" "}
-                    Explore picks woven in
+                    Explore stops
+                    {plan.destination.name ? ` · ending at ${plan.destination.name}` : ""}
                   </p>
                 </div>
                 <button

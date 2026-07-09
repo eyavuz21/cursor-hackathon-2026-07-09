@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
-import { geocodeDestination } from "@/lib/google-places";
 import { buildTripPlan } from "@/lib/route";
 import type { HealthGoal, Interest, OnboardingDetails, PlaceResult } from "@/lib/types";
 
@@ -37,10 +36,16 @@ function isValidRequest(body: unknown): body is PlanRequest {
   const normalizedInterests = Array.isArray(value.interests)
     ? normalizeInterests(value.interests as string[])
     : [];
+  const hasDestination =
+    typeof value.destinationQuery === "string" &&
+    value.destinationQuery.trim().length > 0;
+  const hasRecommendations =
+    Array.isArray(value.recommendedPlaces) &&
+    value.recommendedPlaces.length > 0 &&
+    value.recommendedPlaces.every(isPlaceResult);
 
   return (
-    typeof value.destinationQuery === "string" &&
-    value.destinationQuery.trim().length > 0 &&
+    (hasDestination || hasRecommendations) &&
     typeof value.startLat === "number" &&
     typeof value.startLng === "number" &&
     value.healthGoal !== undefined &&
@@ -71,7 +76,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Invalid request. Provide destination, start coordinates, healthGoal, and interests.",
+          "Invalid request. Provide start coordinates, healthGoal, interests, and either Explore recommendations or a destination.",
       },
       { status: 400 },
     );
@@ -88,28 +93,13 @@ export async function POST(request: Request) {
     recommendedPlaces,
   } = body;
 
-  const query = destinationQuery!.trim();
   const normalizedInterests = normalizeInterests(interests as string[]);
 
   try {
-    const destination = await geocodeDestination(
-      apiKey,
-      query,
-      { lat: startLat!, lng: startLng! },
-    );
-
-    if (!destination) {
-      return NextResponse.json(
-        { error: "Could not find that destination. Try a city or landmark name." },
-        { status: 404 },
-      );
-    }
-
     const plan = await buildTripPlan(
       apiKey,
-      query,
+      destinationQuery,
       { lat: startLat!, lng: startLng!, name: startName },
-      destination,
       {
         healthGoal: healthGoal!,
         interests: normalizedInterests,
@@ -120,14 +110,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ plan });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not build your trip plan.",
-      },
-      { status: 500 },
-    );
+    const message =
+      error instanceof Error ? error.message : "Could not build your trip plan.";
+
+    if (message.includes("Could not find that destination")) {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
