@@ -137,10 +137,10 @@ export default function ExplorePage() {
 
   if (loading && !coords) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 font-sans dark:bg-black">
+      <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
         <main className="flex flex-col items-center gap-3">
-          <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="inline-block h-2 w-2 animate-pulse bg-foreground" />
+          <p className="text-sm uppercase tracking-wider text-muted">
             Finding your location...
           </p>
         </main>
@@ -165,7 +165,7 @@ export default function ExplorePage() {
     : null;
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 font-sans dark:bg-black">
+    <div className="flex flex-1 flex-col bg-background font-sans">
       <AppHeader
         subtitle={
           preferences
@@ -186,7 +186,7 @@ export default function ExplorePage() {
           <button
             type="button"
             onClick={handleStartOver}
-            className="self-start rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="brand-button-secondary self-start"
           >
             Start over
           </button>
@@ -196,14 +196,14 @@ export default function ExplorePage() {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6 lg:flex-row">
         {error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <p className="max-w-md text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="max-w-md text-sm text-muted">
               {error}
             </p>
             {preferences && (
               <button
                 type="button"
                 onClick={() => requestLocation(preferences)}
-                className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-500"
+                className="brand-button-primary"
               >
                 Try again
               </button>
@@ -225,11 +225,11 @@ export default function ExplorePage() {
 
             <section className="flex flex-1 flex-col gap-4 lg:max-w-md">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                <h2 className="text-lg font-medium tracking-tight text-foreground">
                   Recommendations
                 </h2>
                 {loading && (
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="text-sm uppercase tracking-wider text-muted">
                     Loading...
                   </span>
                 )}

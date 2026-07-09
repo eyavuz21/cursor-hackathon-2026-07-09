@@ -27,7 +27,7 @@ export function PlaceMap({
 
   if (!apiKey) {
     return (
-      <div className="flex h-full min-h-[280px] items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-100 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+      <div className="brand-card flex h-full min-h-[280px] items-center justify-center p-6 text-center text-sm text-muted">
         Map unavailable — set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your environment.
       </div>
     );
@@ -41,13 +41,13 @@ export function PlaceMap({
         gestureHandling="greedy"
         disableDefaultUI
         mapId="wander-explore-map"
-        className="h-full min-h-[280px] w-full rounded-2xl"
+        className="h-full min-h-[280px] w-full border border-border"
       >
         <AdvancedMarker position={{ lat: userLat, lng: userLng }}>
           <Pin
-            background="#3b82f6"
-            borderColor="#1d4ed8"
-            glyphColor="#ffffff"
+            background="#0a0a0a"
+            borderColor="#262626"
+            glyphColor="#fafaf9"
           />
         </AdvancedMarker>
 
@@ -58,10 +58,10 @@ export function PlaceMap({
             onClick={() => onSelectPlace(place.id)}
           >
             <div
-              className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold shadow-md ${
+              className={`flex h-7 w-7 items-center justify-center border-2 text-xs font-medium shadow-md ${
                 selectedPlaceId === place.id
-                  ? "border-emerald-500 bg-emerald-500 text-white"
-                  : "border-white bg-zinc-900 text-white"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-white bg-foreground text-background"
               }`}
             >
               {index + 1}

@@ -44,55 +44,53 @@ export function JournalTimeline({
               <button
                 type="button"
                 onClick={() => onSelectStop(stop.id)}
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center border-2 text-xs font-medium transition-colors ${
                   selected
-                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    ? "border-foreground bg-foreground text-background"
                     : stop.type === "start"
-                      ? "border-blue-500 bg-blue-500 text-white"
+                      ? "border-foreground bg-foreground text-background"
                       : stop.type === "destination"
-                        ? "border-emerald-700 bg-emerald-700 text-white"
-                        : "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                        ? "border-muted bg-muted text-background"
+                        : "border-foreground bg-foreground text-background"
                 }`}
               >
                 {stop.type === "recommendation" ? recommendationIndex : "•"}
               </button>
               {!isLast && (
-                <span className="my-1 w-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+                <span className="my-1 w-px flex-1 bg-border" />
               )}
             </div>
 
             <button
               type="button"
               onClick={() => onSelectStop(stop.id)}
-              className={`mb-4 flex-1 rounded-2xl border p-4 text-left transition-colors ${
-                selected
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-950/40"
-                  : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
+              className={`brand-card mb-4 flex-1 p-4 text-left ${
+                selected ? "brand-card-selected" : "hover:border-muted"
               }`}
             >
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                  <span className="brand-label">
                     {stopLabel(stop.type)}
                   </span>
                   {stop.distanceFromPreviousMeters !== undefined && (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                    <span className="border border-border px-2 py-0.5 text-[11px] uppercase tracking-wider text-muted">
                       +{formatDistance(stop.distanceFromPreviousMeters)}
                     </span>
                   )}
                 </div>
-                <h3 className="font-medium text-zinc-900 dark:text-zinc-50">
+                <h3 className="font-medium text-foreground">
                   {stop.name}
                 </h3>
                 {stop.address && stop.type !== "start" && (
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className="text-sm text-muted">
                     {stop.address}
                   </p>
                 )}
                 {stop.type === "recommendation" && (
                   <div className="flex flex-wrap items-center gap-3">
                     {stop.rating !== undefined && (
-                      <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                      <span className="text-sm text-muted">
                         ★ {stop.rating.toFixed(1)}
                       </span>
                     )}
@@ -101,7 +99,7 @@ export function JournalTimeline({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(event) => event.stopPropagation()}
-                      className="text-sm font-medium text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
+                      className="brand-link text-sm"
                     >
                       Open in Google Maps →
                     </a>

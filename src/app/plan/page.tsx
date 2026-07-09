@@ -177,10 +177,10 @@ export default function PlanPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 font-sans dark:bg-black">
+      <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
         <main className="flex flex-col items-center gap-3">
-          <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="inline-block h-2 w-2 animate-pulse bg-foreground" />
+          <p className="text-sm uppercase tracking-wider text-muted">
             Preparing your journal planner...
           </p>
         </main>
@@ -217,14 +217,14 @@ export default function PlanPage() {
     : undefined;
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 font-sans dark:bg-black">
+    <div className="flex flex-1 flex-col bg-background font-sans">
       <AppHeader
         subtitle={subtitle}
         actions={
           <button
             type="button"
             onClick={handleStartOver}
-            className="self-start rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="brand-button-secondary self-start"
           >
             Start over
           </button>
@@ -232,13 +232,13 @@ export default function PlanPage() {
       />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6">
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+        <section className="brand-card p-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+              <h1 className="brand-heading">
                 Plan your outing
               </h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm leading-relaxed text-muted">
                 Tell us where you want to go. We&apos;ll weave personalised
                 recommendations into the route based on your walking pace and
                 interests.
@@ -251,25 +251,25 @@ export default function PlanPage() {
                 value={destinationQuery}
                 onChange={(event) => setDestinationQuery(event.target.value)}
                 placeholder="e.g. British Museum, Edinburgh, Camden Market"
-                className="flex-1 rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                className="flex-1 border border-border bg-accent-subtle px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground"
               />
               <button
                 type="submit"
                 disabled={planning || !destinationQuery.trim()}
-                className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="brand-button-primary whitespace-nowrap"
               >
                 {planning ? "Building route..." : "Build journal route"}
               </button>
             </form>
 
             {error && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+              <p className="border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
                 {error}
               </p>
             )}
 
             {savedMessage && (
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+              <p className="border border-border bg-accent-subtle px-4 py-3 text-sm text-foreground">
                 {savedMessage}
               </p>
             )}
@@ -278,19 +278,19 @@ export default function PlanPage() {
 
         {savedPlans.length > 0 && (
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+            <h2 className="brand-label">
               Saved journal entries
             </h2>
             <div className="flex gap-3 overflow-x-auto pb-1">
               {savedPlans.map((saved) => (
                 <div
                   key={saved.id}
-                  className="min-w-[220px] rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950"
+                  className="brand-card min-w-[220px] p-4"
                 >
-                  <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                  <p className="font-medium text-foreground">
                     {saved.destination.name}
                   </p>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className="mt-1 text-sm text-muted">
                     {formatDistance(saved.totalDistanceMeters)} ·{" "}
                     {saved.stops.filter((stop) => stop.type === "recommendation").length}{" "}
                     stops
@@ -299,14 +299,14 @@ export default function PlanPage() {
                     <button
                       type="button"
                       onClick={() => handleLoadPlan(saved)}
-                      className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                      className="brand-button-primary px-3 py-1.5 text-xs"
                     >
                       Open
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeletePlan(saved.id)}
-                      className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
+                      className="brand-button-secondary px-3 py-1.5 text-xs"
                     >
                       Delete
                     </button>
@@ -331,10 +331,10 @@ export default function PlanPage() {
             <div className="flex flex-1 flex-col gap-4 lg:max-w-md">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-1">
-                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                  <h2 className="text-lg font-medium tracking-tight text-foreground">
                     Your journal route
                   </h2>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className="text-sm text-muted">
                     {plan.destination.name} · {formatDistance(plan.totalDistanceMeters)} with
                     recommendations woven in
                   </p>
@@ -342,7 +342,7 @@ export default function PlanPage() {
                 <button
                   type="button"
                   onClick={handleSavePlan}
-                  className="shrink-0 rounded-full border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                  className="brand-button-secondary shrink-0"
                 >
                   Save
                 </button>
@@ -361,7 +361,7 @@ export default function PlanPage() {
                   .join("|")}&travelmode=walking`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex justify-center rounded-full bg-emerald-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+                className="brand-button-primary inline-flex justify-center"
               >
                 Open full walking route in Google Maps
               </a>
