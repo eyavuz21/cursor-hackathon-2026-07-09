@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { HealthGoal, Interest } from "@/lib/types";
 import { savePreferences } from "@/lib/preferences";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { HealthStep } from "@/components/onboarding/HealthStep";
 import { InterestsStep } from "@/components/onboarding/InterestsStep";
+import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
 
 const TOTAL_STEPS = 2;
 
@@ -52,6 +54,10 @@ export default function OnboardingPage() {
   const canContinue =
     (step === 1 && healthGoal !== null) ||
     (step === 2 && interests.length > 0);
+
+  if (!isSupabaseConfigured()) {
+    return <SupabaseSetupNotice />;
+  }
 
   return (
     <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-12 font-sans dark:bg-black">

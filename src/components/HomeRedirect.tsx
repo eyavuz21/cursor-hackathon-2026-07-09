@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPreferences } from "@/lib/preferences";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
 
 export function HomeRedirect() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const configured = isSupabaseConfigured();
 
   useEffect(() => {
+    if (!configured) return;
+
     async function redirect() {
       try {
         const preferences = await getPreferences();
@@ -19,7 +24,11 @@ export function HomeRedirect() {
     }
 
     redirect();
-  }, [router]);
+  }, [router, configured]);
+
+  if (!configured) {
+    return <SupabaseSetupNotice />;
+  }
 
   if (error) {
     return (
