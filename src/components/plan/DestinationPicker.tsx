@@ -26,7 +26,7 @@ export function DestinationPicker({
   if (places.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No suggestions available yet. Visit Explore to load recommendations.
+        No suggestions available yet. Pick places on the map above.
       </p>
     );
   }

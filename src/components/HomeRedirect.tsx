@@ -20,7 +20,7 @@ export function HomeRedirect() {
       try {
         setMessage("Loading your profile");
         const preferences = await getPreferences();
-        router.replace(preferences ? "/explore" : "/onboarding");
+        router.replace(preferences ? "/journey" : "/onboarding");
       } catch {
         setError("Could not load your preferences. Please try again.");
       }
