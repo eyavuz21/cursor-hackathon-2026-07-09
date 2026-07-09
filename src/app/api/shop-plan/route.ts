@@ -125,10 +125,10 @@ export async function POST(request: Request) {
     });
 
     const priceNote = plan.priceSource === "linkup"
-      ? "Live web prices via LinkUp (ParkAndSave integration)."
+      ? "Live web prices via LinkUp."
       : isLinkUpConfigured()
         ? "Could not fetch live prices right now — using route-based supermarket matching."
-        : "Add LINKUP_API_KEY for live grocery prices (ParkAndSave / LinkUp integration).";
+        : "Add LINKUP_API_KEY to Vercel for live grocery prices (app.linkup.so).";
 
     return NextResponse.json({
       plan,
