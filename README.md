@@ -1,6 +1,7 @@
 # Wander — Human-first urban mobility
 
-**Live app:** [wander-hackathon.vercel.app](https://wander-hackathon.vercel.app)
+**Live app:** [cursor-hackathon-2026-07-09.vercel.app](https://cursor-hackathon-2026-07-09.vercel.app)  
+**Target URL (after Vercel rename):** `wander-hackathon.vercel.app`
 
 Built for the **2026 July 09 Cursor Hackathon**. Wander is not another map that optimises for the machine. It optimises for the human walking through the city.
 
@@ -77,8 +78,8 @@ Without `LINKUP_API_KEY`, the planner still works but falls back to route-based 
 
 | Page | Purpose |
 |------|---------|
-| [`/onboarding`](https://wander-hackathon.vercel.app/onboarding) | Mode-first setup: pick MentalClear, SocialExplore, or HealthOptimised → one follow-up question → launch |
-| [`/journey`](https://wander-hackathon.vercel.app/journey) | **One unified flow:** discover places on the map → optionally add errands → build your walking route → review and save |
+| [`/onboarding`](https://cursor-hackathon-2026-07-09.vercel.app/onboarding) | Mode-first setup: pick MentalClear, SocialExplore, or HealthOptimised → one follow-up question → launch |
+| [`/journey`](https://cursor-hackathon-2026-07-09.vercel.app/journey) | **One unified flow:** discover places on the map → optionally add errands → build your walking route → review and save |
 
 Legacy URLs (`/explore`, `/plan`, `/shop`) redirect into `/journey` for backward compatibility.
 
@@ -116,7 +117,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment variables
 
-Add to `.env.local` and [Vercel project settings](https://vercel.com/boyle/wander-hackathon/settings/environment-variables):
+Add to `.env.local` and [Vercel project settings](https://vercel.com/boyle/cursor-hackathon-2026-07-09/settings/environment-variables):
 
 | Variable | Purpose |
 |----------|---------|
@@ -137,5 +138,15 @@ See [`PLAN.md`](PLAN.md) for the original hackathon build plan.
 
 ## Deployments
 
-- **Production** — `main` → [wander-hackathon.vercel.app](https://wander-hackathon.vercel.app)
+- **Production** — `main` → [cursor-hackathon-2026-07-09.vercel.app](https://cursor-hackathon-2026-07-09.vercel.app)
 - **Preview** — automatic for every branch and pull request
+
+### Rename to `wander-hackathon.vercel.app`
+
+The docs and package name use `wander-hackathon`, but the live Vercel URL only changes after you rename the project in the dashboard:
+
+1. Open [Vercel → cursor-hackathon-2026-07-09 → Settings → General](https://vercel.com/boyle/cursor-hackathon-2026-07-09/settings)
+2. Set **Project Name** to `wander-hackathon` (not `hackathon` — that subdomain is taken by another project)
+3. Save — Vercel redeploys and the app moves to [wander-hackathon.vercel.app](https://wander-hackathon.vercel.app)
+
+Until that rename completes, keep using the current production URL above.
