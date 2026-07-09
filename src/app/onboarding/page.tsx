@@ -30,8 +30,12 @@ export default function OnboardingPage() {
       try {
         await savePreferences({ healthGoal, interests });
         router.push("/explore");
-      } catch {
-        setError("Could not save your preferences. Please try again.");
+      } catch (saveError) {
+        setError(
+          saveError instanceof Error
+            ? saveError.message
+            : "Could not save your preferences. Please try again.",
+        );
       } finally {
         setSaving(false);
       }

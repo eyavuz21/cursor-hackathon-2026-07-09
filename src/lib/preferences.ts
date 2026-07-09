@@ -1,5 +1,4 @@
 import type { HealthGoal, Interest, UserPreferences } from "./types";
-import { createClient } from "./supabase/client";
 
 const RADIUS_METERS: Record<HealthGoal, number> = {
   gentle: 800,
@@ -7,97 +6,50 @@ const RADIUS_METERS: Record<HealthGoal, number> = {
   active: 5000,
 };
 
-type PreferencesRow = {
-  health_goal: HealthGoal;
-  interests: Interest[];
-};
-
 export function getRadiusMeters(healthGoal: HealthGoal): number {
   return RADIUS_METERS[healthGoal];
 }
 
-async function ensureSession() {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) throw error;
-  }
-
-  return supabase;
-}
-
-function parsePreferencesRow(row: PreferencesRow): UserPreferences | null {
-  if (!row.health_goal || !Array.isArray(row.interests)) return null;
-  if (row.interests.length === 0) return null;
-
-  return {
-    healthGoal: row.health_goal,
-    interests: row.interests,
-  };
+async function parseResponse(response: Response): Promise<never> {
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  throw new Error(data.error ?? "Request failed");
 }
 
 export async function getPreferences(): Promise<UserPreferences | null> {
-  const supabase = await ensureSession();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const response = await fetch("/api/preferences", { credentials: "include" });
 
-  if (!user) return null;
+  if (!response.ok) {
+    await parseResponse(response);
+  }
 
-  const { data, error } = await supabase
-    .from("user_preferences")
-    .select("health_goal, interests")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (error || !data) return null;
-
-  return parsePreferencesRow(data as PreferencesRow);
+  const data = (await response.json()) as { preferences: UserPreferences | null };
+  return data.preferences;
 }
 
 export async function savePreferences(
   preferences: UserPreferences,
 ): Promise<void> {
-  const supabase = await ensureSession();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const response = await fetch("/api/preferences", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(preferences),
+  });
 
-  if (!user) {
-    throw new Error("No authenticated user");
+  if (!response.ok) {
+    await parseResponse(response);
   }
-
-  const { error } = await supabase.from("user_preferences").upsert(
-    {
-      user_id: user.id,
-      health_goal: preferences.healthGoal,
-      interests: preferences.interests,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
-
-  if (error) throw error;
 }
 
 export async function clearPreferences(): Promise<void> {
-  const supabase = await ensureSession();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const response = await fetch("/api/preferences", {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-  if (!user) return;
-
-  const { error } = await supabase
-    .from("user_preferences")
-    .delete()
-    .eq("user_id", user.id);
-
-  if (error) throw error;
+  if (!response.ok) {
+    await parseResponse(response);
+  }
 }
 
 export const HEALTH_GOAL_OPTIONS: {
