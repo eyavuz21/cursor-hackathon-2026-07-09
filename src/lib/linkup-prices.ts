@@ -1,4 +1,6 @@
 import type { Supermarket } from "@/lib/osm-shops";
+import type { ParkingLot } from "@/lib/osm-parking";
+import type { LiveParkingPriceInput, ParkingPriceQuote } from "@/lib/parking";
 
 const USER_AGENT = "Wander/1.0 (hackathon; parkandsave-integration)";
 const LINKUP_SEARCH_URL = "https://api.linkup.so/v1/search";
@@ -305,6 +307,212 @@ Use recent web prices in GBP.`;
     });
 
     const parsed = parseSourcedAnswer(sourced.answer, input.items, input.shops);
+    parsed.sources = (sourced.sources ?? []).slice(0, 5).map((source) => ({
+      name: source.name,
+      url: source.url,
+    }));
+
+    return parsed.quotes.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function matchParkingByName(
+  lots: ParkingLot[],
+  candidate: string,
+): ParkingLot | null {
+  const normalizedCandidate = normalizeName(candidate);
+  if (!normalizedCandidate) return null;
+
+  let best: ParkingLot | null = null;
+  let bestScore = 0;
+
+  for (const lot of lots) {
+    const names = [lot.name, lot.operator].filter(Boolean) as string[];
+    for (const name of names) {
+      const normalizedLot = normalizeName(name);
+      if (!normalizedLot) continue;
+
+      if (
+        normalizedLot === normalizedCandidate ||
+        normalizedLot.includes(normalizedCandidate) ||
+        normalizedCandidate.includes(normalizedLot)
+      ) {
+        return lot;
+      }
+
+      const overlap = normalizedCandidate
+        .split(" ")
+        .filter((token) => token.length > 2 && normalizedLot.includes(token))
+        .length;
+
+      if (overlap > bestScore) {
+        bestScore = overlap;
+        best = lot;
+      }
+    }
+  }
+
+  return bestScore > 0 ? best : null;
+}
+
+type StructuredParkingPayload = {
+  parkingPrices?: Array<{
+    carPark?: string;
+    priceGbpPerHour?: number;
+    note?: string;
+  }>;
+  cheapestCarPark?: string;
+  summary?: string;
+};
+
+const PARKING_SCHEMA = {
+  type: "object",
+  properties: {
+    parkingPrices: {
+      type: "array",
+      description: "Hourly parking prices at specific car parks",
+      items: {
+        type: "object",
+        properties: {
+          carPark: { type: "string" },
+          priceGbpPerHour: { type: "number" },
+          note: { type: "string" },
+        },
+        required: ["carPark", "priceGbpPerHour"],
+      },
+    },
+    cheapestCarPark: {
+      type: "string",
+      description: "Car park with the lowest hourly rate",
+    },
+    summary: {
+      type: "string",
+      description: "One sentence summary of the cheapest parking options",
+    },
+  },
+  required: ["parkingPrices", "cheapestCarPark", "summary"],
+};
+
+function parseParkingPayload(
+  payload: StructuredParkingPayload,
+  lots: ParkingLot[],
+): LiveParkingPriceInput {
+  const quotes: ParkingPriceQuote[] = [];
+
+  for (const entry of payload.parkingPrices ?? []) {
+    if (!entry.carPark || typeof entry.priceGbpPerHour !== "number") {
+      continue;
+    }
+
+    const matchedLot = matchParkingByName(lots, entry.carPark);
+    quotes.push({
+      lotName: matchedLot?.name ?? entry.carPark,
+      lotId: matchedLot?.id ?? null,
+      priceGbpPerHour: entry.priceGbpPerHour,
+      note: entry.note,
+    });
+  }
+
+  const cheapestLot = payload.cheapestCarPark
+    ? matchParkingByName(lots, payload.cheapestCarPark)
+    : null;
+
+  return {
+    quotes,
+    cheapestLotId: cheapestLot?.id ?? null,
+    cheapestLotName: cheapestLot?.name ?? payload.cheapestCarPark ?? null,
+    summary: payload.summary ?? null,
+    sources: [],
+  };
+}
+
+function parseParkingSourcedAnswer(
+  answer: string,
+  lots: ParkingLot[],
+): LiveParkingPriceInput {
+  const quotes: ParkingPriceQuote[] = [];
+  const lines = answer.split(/\n+/);
+
+  for (const line of lines) {
+    const priceMatch = line.match(/£\s?(\d+(?:\.\d{2})?)/);
+    if (!priceMatch) continue;
+
+    const priceGbpPerHour = Number.parseFloat(priceMatch[1]);
+    const lot =
+      lots.find(
+        (candidate) =>
+          line.toLowerCase().includes(candidate.name.toLowerCase()) ||
+          (candidate.operator &&
+            line.toLowerCase().includes(candidate.operator.toLowerCase())),
+      ) ?? null;
+
+    if (!lot) continue;
+
+    quotes.push({
+      lotName: lot.name,
+      lotId: lot.id,
+      priceGbpPerHour,
+      note: line.trim(),
+    });
+  }
+
+  return {
+    quotes,
+    cheapestLotId: null,
+    cheapestLotName: null,
+    summary: answer,
+    sources: [],
+  };
+}
+
+export async function fetchLiveParkingPrices(input: {
+  lots: ParkingLot[];
+  lat: number;
+  lng: number;
+  destinationLabel?: string;
+}): Promise<LiveParkingPriceInput | null> {
+  if (!isLinkUpConfigured() || input.lots.length === 0) {
+    return null;
+  }
+
+  const locationLabel =
+    input.destinationLabel ?? (await reverseGeocodeLabel(input.lat, input.lng));
+  const lotNames = input.lots
+    .slice(0, 8)
+    .map((lot) => lot.name)
+    .join(", ");
+
+  const query = `Find current UK car park hourly prices near ${locationLabel}.
+Compare these nearby car parks: ${lotNames}.
+Return the hourly rate in GBP for each car park and which is cheapest.
+Include NCP, Q-Park, council, and commercial car parks where possible.`;
+
+  try {
+    const structured = await linkupSearch<StructuredParkingPayload>({
+      q: query,
+      depth: "standard",
+      outputType: "structured",
+      structuredOutputSchema: PARKING_SCHEMA,
+    });
+
+    const parsed = parseParkingPayload(structured, input.lots);
+    if (parsed.quotes.length > 0) {
+      return parsed;
+    }
+  } catch {
+    // Fall through to sourced answer.
+  }
+
+  try {
+    const sourced = await linkupSearch<LinkUpSourcedAnswer>({
+      q: query,
+      depth: "standard",
+      outputType: "sourcedAnswer",
+    });
+
+    const parsed = parseParkingSourcedAnswer(sourced.answer, input.lots);
     parsed.sources = (sourced.sources ?? []).slice(0, 5).map((source) => ({
       name: source.name,
       url: source.url,
