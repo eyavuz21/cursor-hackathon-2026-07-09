@@ -19,19 +19,13 @@ export function AppHeader({ subtitle, actions }: AppHeaderProps) {
                 href="/explore"
                 className="px-3 py-1.5 font-medium tracking-wide text-muted transition-colors hover:text-foreground"
               >
-                Explore
+                Wander
               </Link>
               <Link
                 href="/shop"
                 className="px-3 py-1.5 font-medium tracking-wide text-muted transition-colors hover:text-foreground"
               >
                 Shop planner
-              </Link>
-              <Link
-                href="/plan"
-                className="px-3 py-1.5 font-medium tracking-wide text-muted transition-colors hover:text-foreground"
-              >
-                Journal planner
               </Link>
             </nav>
           </div>

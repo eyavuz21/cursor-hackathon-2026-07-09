@@ -26,7 +26,7 @@ export function DestinationPicker({
   if (places.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No suggestions available yet. Visit Explore to load recommendations.
+        Select at least one place above to choose a destination.
       </p>
     );
   }
