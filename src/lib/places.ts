@@ -14,6 +14,7 @@ import {
   scorePlaceForMode,
   type ModePlaceSearch,
 } from "./modes";
+import { rankPlacesForJourney } from "./place-ranking";
 
 export const MIN_PLACE_RATING = 4.5;
 export const MAX_RECOMMENDATIONS = 5;
@@ -173,6 +174,7 @@ export function normalizePlace(
     lat,
     lng,
     rating: place.rating,
+    userRatingCount: place.userRatingCount,
     googleMapsUri: place.googleMapsUri,
   };
 
@@ -298,7 +300,7 @@ export function spreadPlacesAcrossRadius(
   if (selected.length < limit) {
     const remaining = places
       .filter((place) => !used.has(place.id))
-      .sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 
     for (const place of remaining) {
       selected.push(place);
@@ -307,7 +309,7 @@ export function spreadPlacesAcrossRadius(
     }
   }
 
-  return sortByDistanceAscending(selected.slice(0, limit));
+  return sortByQualityThenDistance(selected.slice(0, limit));
 }
 
 type SearchAnchor = {
@@ -652,5 +654,5 @@ export async function searchRecommendations(params: {
     maxResults,
   );
 
-  return sortPlacesForMode(spread, mode).slice(0, MAX_RECOMMENDATIONS);
+  return rankPlacesForJourney(spread, details).slice(0, MAX_RECOMMENDATIONS);
 }

@@ -17,6 +17,11 @@ import type {
 } from "@/lib/types";
 import { fetchWalkingRoute } from "@/lib/directions";
 import { geocodeDestination } from "@/lib/google-places";
+import {
+  getTopRatedPlaces,
+  rankPlacesForJourney,
+  scorePlaceForJourney,
+} from "@/lib/place-ranking";
 import { getSearchRadiusMeters, searchRecommendations, dedupePlaces } from "@/lib/places";
 import {
   getJourneyMode,
@@ -24,6 +29,7 @@ import {
   getModeRouteStopsOffset,
 } from "@/lib/modes";
 import { isHealthOptimisedMode } from "@/lib/mode-preferences";
+import type { OnboardingDetails } from "@/lib/types";
 
 const EARTH_RADIUS_METERS = 6_371_000;
 
@@ -110,10 +116,8 @@ function selectPlacesAlongRoute(
       return entry.perpendicularMeters <= maxDetourMeters;
     })
     .sort((a, b) => {
-      if (b.place.rating !== undefined && a.place.rating !== undefined) {
-        const ratingDiff = b.place.rating - a.place.rating;
-        if (Math.abs(ratingDiff) > 0.2) return ratingDiff;
-      }
+      const ratingDiff = (b.place.rating ?? 0) - (a.place.rating ?? 0);
+      if (ratingDiff !== 0) return ratingDiff;
 
       return a.t - b.t;
     });
@@ -141,14 +145,15 @@ export function orderPlacesForWalkingRoute(
   start: LatLng,
   places: PlaceResult[],
   maxStops: number,
+  details?: OnboardingDetails,
 ): PlaceResult[] {
-  const remaining = dedupePlaces(places);
+  const remaining = rankPlacesForJourney(dedupePlaces(places), details);
   const ordered: PlaceResult[] = [];
   let current = start;
 
   while (ordered.length < maxStops && remaining.length > 0) {
     let bestIndex = 0;
-    let bestDistance = Number.POSITIVE_INFINITY;
+    let bestScore = Number.NEGATIVE_INFINITY;
 
     for (let index = 0; index < remaining.length; index += 1) {
       const place = remaining[index];
@@ -156,9 +161,11 @@ export function orderPlacesForWalkingRoute(
         lat: place.lat,
         lng: place.lng,
       });
+      const quality = scorePlaceForJourney(place, details);
+      const score = quality * 1000 - distance;
 
-      if (distance < bestDistance) {
-        bestDistance = distance;
+      if (score > bestScore) {
+        bestScore = score;
         bestIndex = index;
       }
     }
@@ -501,50 +508,59 @@ export async function buildTripPlan(
   let resolvedDestinationQuery: string;
 
   if (recommendedPlaces && recommendedPlaces.length > 0) {
+    const rankedPlaces = rankPlacesForJourney(
+      recommendedPlaces,
+      preferences.details,
+    );
     const destinationPick = destinationPlaceId
-      ? recommendedPlaces.find((place) => place.id === destinationPlaceId)
+      ? rankedPlaces.find((place) => place.id === destinationPlaceId)
       : undefined;
 
     if (destinationPick) {
       destination = placeToDestination(destinationPick);
       resolvedDestinationQuery = destinationPick.name;
 
-      const waypointPool = recommendedPlaces.filter(
+      const waypointPool = rankedPlaces.filter(
         (place) => place.id !== destinationPick.id,
       );
       recommendations = orderPlacesForWalkingRoute(
         start,
         waypointPool,
         maxStops,
+        preferences.details,
       );
 
       if (healthOptimised) {
         recommendations = selectHealthOptimisedStops(
           start,
           destination,
-          recommendations,
+          getTopRatedPlaces(waypointPool, maxStops + 4, preferences.details),
           maxDetourMeters,
           haversineMeters(start, destination),
           maxWalkMinutes,
         );
       }
     } else {
-      const orderedPlaces = orderPlacesForWalkingRoute(
-        start,
-        recommendedPlaces,
-        maxStops,
+      const topRated = getTopRatedPlaces(
+        rankedPlaces,
+        Math.max(maxStops + 1, rankedPlaces.length),
+        preferences.details,
       );
 
-      if (orderedPlaces.length === 1) {
-        const only = orderedPlaces[0];
+      if (topRated.length === 1) {
+        const only = topRated[0];
         destination = placeToDestination(only);
         resolvedDestinationQuery = only.name;
         recommendations = [];
       } else {
-        const last = orderedPlaces[orderedPlaces.length - 1];
-        destination = placeToDestination(last);
-        resolvedDestinationQuery = `Walking tour ending at ${last.name}`;
-        recommendations = orderedPlaces.slice(0, -1);
+        destination = placeToDestination(topRated[0]);
+        resolvedDestinationQuery = `Walking tour ending at ${topRated[0].name}`;
+        recommendations = orderPlacesForWalkingRoute(
+          start,
+          topRated.slice(1),
+          maxStops,
+          preferences.details,
+        );
       }
     }
   } else {

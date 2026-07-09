@@ -14,6 +14,7 @@ import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
 import { isHealthOptimisedMode } from "@/lib/mode-preferences";
 import { SOCIAL_VIBE_OPTIONS, TIME_BUDGET_OPTIONS } from "@/lib/onboarding";
 import { getSearchRadiusMeters } from "@/lib/places";
+import { rankPlacesForJourney } from "@/lib/place-ranking";
 import { deletePlan, getSavedPlans, savePlan } from "@/lib/journal";
 import { formatDistance } from "@/lib/route";
 import type { JourneyMode, PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
@@ -100,11 +101,12 @@ export default function ExplorePage() {
         throw new Error(data.error ?? "Failed to load recommendations.");
       }
 
-      setPlaces(data.places ?? []);
+      const ranked = rankPlacesForJourney(data.places ?? [], prefs.details);
+      setPlaces(ranked);
       setSearchRadiusMeters(data.searchRadiusMeters ?? null);
       setDistanceSpread(data.distanceSpread ?? null);
-      setSelectedPlaceId(data.places?.[0]?.id ?? null);
-      const allIds = new Set((data.places ?? []).map((place) => place.id));
+      setSelectedPlaceId(ranked[0]?.id ?? null);
+      const allIds = new Set(ranked.map((place) => place.id));
       setJourneyPlaceIds(allIds);
       setPlan(null);
       setView("picks");
@@ -211,7 +213,10 @@ export default function ExplorePage() {
           healthGoal: preferences.healthGoal,
           interests: preferences.interests,
           details: preferences.details,
-          recommendedPlaces: selectedPlaces,
+          recommendedPlaces: rankPlacesForJourney(
+            selectedPlaces,
+            preferences.details,
+          ),
           healthOptimisedRoute: isHealthOptimisedMode(preferences.details),
         }),
       });
@@ -579,8 +584,8 @@ export default function ExplorePage() {
                     <p className="text-sm text-muted">{spreadLabel}</p>
                   )}
                   <p className="text-sm text-muted">
-                    Check the places you want, choose where to end up, then create
-                    your route.
+                    Top-rated picks for your vibe — check the ones you want,
+                    choose where to end up, then create your route.
                   </p>
                 </div>
 
