@@ -26,6 +26,7 @@ import {
 import type { JourneyMode, PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { HealthOptimisedToggle } from "@/components/plan/HealthOptimisedToggle";
+import { DestinationPicker } from "@/components/plan/DestinationPicker";
 
 type Coordinates = {
   lat: number;
@@ -37,7 +38,9 @@ export default function PlanPage() {
   const autoCreateAttempted = useRef(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [coords, setCoords] = useState<Coordinates | null>(null);
-  const [destinationQuery, setDestinationQuery] = useState("");
+  const [selectedDestinationId, setSelectedDestinationId] = useState<string | null>(
+    null,
+  );
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [savedPlans, setSavedPlans] = useState<TripPlan[]>([]);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -152,13 +155,16 @@ export default function PlanPage() {
   const handleCreatePlan = useCallback(
     async (
       event?: React.FormEvent<HTMLFormElement>,
-      options?: { destinationOverride?: string },
+      options?: { destinationPlaceId?: string | null },
     ) => {
       event?.preventDefault();
 
       if (!preferences || !coords) return;
 
-      const query = (options?.destinationOverride ?? destinationQuery).trim();
+      const destinationPlaceId =
+        options?.destinationPlaceId !== undefined
+          ? options.destinationPlaceId
+          : selectedDestinationId;
 
       if (recommendedPlaces.length === 0) {
         setError(
@@ -176,7 +182,7 @@ export default function PlanPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            destinationQuery: query || undefined,
+            destinationPlaceId: destinationPlaceId ?? undefined,
             startLat: coords.lat,
             startLng: coords.lng,
             startName: "Your location",
@@ -206,9 +212,9 @@ export default function PlanPage() {
         const recommendationStops =
           nextPlan?.stops.filter((stop) => stop.type === "recommendation")
             .length ?? 0;
-        if (nextPlan && recommendationStops === 0 && query) {
+        if (nextPlan && recommendationStops === 0 && destinationPlaceId) {
           setError(
-            "Your walking route is ready, but it goes straight to that destination without extra Explore stops.",
+            "Your walking route is ready, but it goes straight to that pick without extra stops along the way.",
           );
         }
       } catch (planError) {
@@ -221,7 +227,7 @@ export default function PlanPage() {
         setPlanning(false);
       }
     },
-    [coords, destinationQuery, healthOptimisedRoute, preferences, recommendedPlaces],
+    [coords, healthOptimisedRoute, preferences, recommendedPlaces, selectedDestinationId],
   );
 
   useEffect(() => {
@@ -264,7 +270,11 @@ export default function PlanPage() {
 
   function handleLoadPlan(saved: TripPlan) {
     setPlan(saved);
-    setDestinationQuery(saved.destinationQuery);
+    const destinationStop = saved.stops.find((stop) => stop.type === "destination");
+    const matchingPlace = recommendedPlaces.find(
+      (place) => place.id === destinationStop?.placeId || place.name === destinationStop?.name,
+    );
+    setSelectedDestinationId(matchingPlace?.id ?? null);
     setSelectedStopId(saved.stops[1]?.id ?? saved.stops[0]?.id ?? null);
     setSavedMessage(null);
     setError(null);
@@ -377,9 +387,9 @@ export default function PlanPage() {
                 Plan your outing
               </h1>
               <p className="text-sm leading-relaxed text-muted">
-                We&apos;ll create a walking route through your Explore picks,
-                ordered for the shortest path. Add an optional final destination
-                if you want to end somewhere specific.
+                Choose where to end your walk from your Explore suggestions.
+                We&apos;ll build a walking route through your other picks on the
+                way there.
               </p>
               {loadingRecommendations ? (
                 <p className="text-sm text-muted">Loading your recommendations...</p>
@@ -417,27 +427,20 @@ export default function PlanPage() {
               disabled={planning}
             />
 
-            <form onSubmit={handleCreatePlan} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  type="text"
-                  value={destinationQuery}
-                  onChange={(event) => setDestinationQuery(event.target.value)}
-                  placeholder="Optional final destination (e.g. British Museum)"
-                  className="flex-1 border border-border bg-accent-subtle px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground"
-                />
-                <button
-                  type="submit"
-                  disabled={planning || recommendedPlaces.length === 0}
-                  className="brand-button-primary whitespace-nowrap"
-                >
-                  {planning ? "Creating route..." : "Create walking route"}
-                </button>
-              </div>
-              <p className="text-sm text-muted">
-                Leave the destination blank to build a local route through your
-                selected recommendations.
-              </p>
+            <form onSubmit={handleCreatePlan} className="flex flex-col gap-4">
+              <DestinationPicker
+                places={recommendedPlaces}
+                value={selectedDestinationId}
+                onChange={setSelectedDestinationId}
+                disabled={planning || loadingRecommendations}
+              />
+              <button
+                type="submit"
+                disabled={planning || recommendedPlaces.length === 0}
+                className="brand-button-primary w-full sm:w-auto sm:self-start"
+              >
+                {planning ? "Creating route..." : "Create walking route"}
+              </button>
             </form>
 
             {error && (

@@ -5,6 +5,7 @@ import type { HealthGoal, Interest, OnboardingDetails, PlaceResult } from "@/lib
 
 type PlanRequest = {
   destinationQuery?: string;
+  destinationPlaceId?: string;
   startLat?: number;
   startLng?: number;
   startName?: string;
@@ -40,13 +41,18 @@ function isValidRequest(body: unknown): body is PlanRequest {
   const hasDestination =
     typeof value.destinationQuery === "string" &&
     value.destinationQuery.trim().length > 0;
+  const hasDestinationPlaceId =
+    typeof value.destinationPlaceId === "string" &&
+    value.destinationPlaceId.trim().length > 0;
   const hasRecommendations =
     Array.isArray(value.recommendedPlaces) &&
     value.recommendedPlaces.length > 0 &&
     value.recommendedPlaces.every(isPlaceResult);
 
   return (
-    (hasDestination || hasRecommendations) &&
+    (hasDestination ||
+      hasDestinationPlaceId ||
+      hasRecommendations) &&
     typeof value.startLat === "number" &&
     typeof value.startLng === "number" &&
     value.healthGoal !== undefined &&
@@ -85,6 +91,7 @@ export async function POST(request: Request) {
 
   const {
     destinationQuery,
+    destinationPlaceId,
     startLat,
     startLng,
     startName,
@@ -110,6 +117,7 @@ export async function POST(request: Request) {
       {
         healthOptimisedRoute: healthOptimisedRoute === true,
         recommendedPlaces,
+        destinationPlaceId: destinationPlaceId?.trim() || undefined,
       },
     );
 

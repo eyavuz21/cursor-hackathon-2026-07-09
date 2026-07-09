@@ -450,10 +450,12 @@ export async function buildTripPlan(
   options?: {
     healthOptimisedRoute?: boolean;
     recommendedPlaces?: PlaceResult[];
+    destinationPlaceId?: string;
   },
 ): Promise<TripPlan> {
   const healthOptimised = options?.healthOptimisedRoute ?? false;
   const recommendedPlaces = options?.recommendedPlaces;
+  const destinationPlaceId = options?.destinationPlaceId;
   const mode = getJourneyMode(preferences.details);
   const radius = Math.min(
     getSearchRadiusMeters(preferences.healthGoal, preferences.details),
@@ -478,28 +480,26 @@ export async function buildTripPlan(
   let resolvedDestinationQuery: string;
 
   if (recommendedPlaces && recommendedPlaces.length > 0) {
-    const orderedPlaces = orderPlacesForWalkingRoute(
-      start,
-      recommendedPlaces,
-      maxStops,
-    );
+    const destinationPick = destinationPlaceId
+      ? recommendedPlaces.find((place) => place.id === destinationPlaceId)
+      : undefined;
 
-    if (trimmedQuery) {
-      const geocoded = await geocodeDestination(apiKey, trimmedQuery, start);
-      if (!geocoded) {
-        throw new Error(
-          "Could not find that destination. Try a city or landmark name.",
-        );
-      }
+    if (destinationPick) {
+      destination = {
+        name: destinationPick.name,
+        address: destinationPick.address,
+        lat: destinationPick.lat,
+        lng: destinationPick.lng,
+      };
+      resolvedDestinationQuery = destinationPick.name;
 
-      destination = geocoded;
-      resolvedDestinationQuery = trimmedQuery;
-      recommendations = orderedPlaces.filter(
-        (place) =>
-          haversineMeters(
-            { lat: place.lat, lng: place.lng },
-            { lat: destination.lat, lng: destination.lng },
-          ) > 75,
+      const waypointPool = recommendedPlaces.filter(
+        (place) => place.id !== destinationPick.id,
+      );
+      recommendations = orderPlacesForWalkingRoute(
+        start,
+        waypointPool,
+        maxStops,
       );
 
       if (healthOptimised) {
@@ -511,26 +511,34 @@ export async function buildTripPlan(
           haversineMeters(start, destination),
         );
       }
-    } else if (orderedPlaces.length === 1) {
-      const only = orderedPlaces[0];
-      destination = {
-        name: only.name,
-        address: only.address,
-        lat: only.lat,
-        lng: only.lng,
-      };
-      resolvedDestinationQuery = only.name;
-      recommendations = [];
     } else {
-      const last = orderedPlaces[orderedPlaces.length - 1];
-      destination = {
-        name: last.name,
-        address: last.address,
-        lat: last.lat,
-        lng: last.lng,
-      };
-      resolvedDestinationQuery = `Walking tour ending at ${last.name}`;
-      recommendations = orderedPlaces.slice(0, -1);
+      const orderedPlaces = orderPlacesForWalkingRoute(
+        start,
+        recommendedPlaces,
+        maxStops,
+      );
+
+      if (orderedPlaces.length === 1) {
+        const only = orderedPlaces[0];
+        destination = {
+          name: only.name,
+          address: only.address,
+          lat: only.lat,
+          lng: only.lng,
+        };
+        resolvedDestinationQuery = only.name;
+        recommendations = [];
+      } else {
+        const last = orderedPlaces[orderedPlaces.length - 1];
+        destination = {
+          name: last.name,
+          address: last.address,
+          lat: last.lat,
+          lng: last.lng,
+        };
+        resolvedDestinationQuery = `Walking tour ending at ${last.name}`;
+        recommendations = orderedPlaces.slice(0, -1);
+      }
     }
   } else {
     if (!trimmedQuery) {
