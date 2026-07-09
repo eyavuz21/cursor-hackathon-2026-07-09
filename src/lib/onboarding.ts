@@ -1,124 +1,89 @@
-import type { HealthGoal, Interest, OnboardingDetails } from "./types";
-import { getInterestLabels } from "./interests";
+import type {
+  HealthGoal,
+  JourneyMode,
+  OnboardingDetails,
+  SocialVibe,
+  TimeBudget,
+} from "./types";
+import { getJourneyModeLabel } from "./modes";
+import {
+  healthGoalFromTimeBudget,
+  getModeFollowUpPrompt,
+  SOCIAL_VIBE_OPTIONS,
+  TIME_BUDGET_OPTIONS,
+} from "./mode-preferences";
+import { HEALTH_GOAL_OPTIONS } from "./preferences";
 
-export type OnboardingStepId =
-  | "welcome"
-  | "health"
-  | "health-followup"
-  | "interests"
-  | "launch";
+export type OnboardingStepId = "welcome" | "mode" | "mode-followup" | "launch";
 
 export function getOnboardingSteps(): OnboardingStepId[] {
-  return ["welcome", "health", "health-followup", "interests", "launch"];
-}
-
-export function getHealthFollowUpPrompt(healthGoal: HealthGoal): {
-  title: string;
-  subtitle: string;
-} {
-  switch (healthGoal) {
-    case "gentle":
-      return {
-        title: "What makes a gentle walk feel right?",
-        subtitle: "We'll shape your route around how you like to move.",
-      };
-    case "moderate":
-      return {
-        title: "How do you like to spend a moderate outing?",
-        subtitle: "This helps us balance walking with what you want to see.",
-      };
-    case "active":
-      return {
-        title: "How adventurous should we get?",
-        subtitle: "Active explorers get extra-tailored suggestions.",
-      };
-  }
-}
-
-export const OUTING_STYLE_OPTIONS: {
-  value: import("./types").OutingStyle;
-  label: string;
-  description: string;
-  forGoals: HealthGoal[];
-}[] = [
-  {
-    value: "scenic",
-    label: "Scenic meanders",
-    description: "Beautiful paths between stops — the journey matters.",
-    forGoals: ["gentle", "moderate", "active"],
-  },
-  {
-    value: "direct",
-    label: "Straight to the highlights",
-    description: "Efficient routes that get you to the good stuff faster.",
-    forGoals: ["gentle", "moderate"],
-  },
-  {
-    value: "explorer",
-    label: "Off the beaten path",
-    description: "Hidden gems and local favorites over the obvious picks.",
-    forGoals: ["moderate", "active"],
-  },
-];
-
-export function getOutingOptionsForGoal(healthGoal: HealthGoal) {
-  return OUTING_STYLE_OPTIONS.filter((option) =>
-    option.forGoals.includes(healthGoal),
-  );
+  return ["welcome", "mode", "mode-followup", "launch"];
 }
 
 export function isStepComplete(
   step: OnboardingStepId,
   state: {
+    journeyMode: JourneyMode | null;
     healthGoal: HealthGoal | null;
-    interests: Interest[];
-    details: OnboardingDetails;
+    socialVibes: SocialVibe[];
+    timeBudget: TimeBudget | null;
   },
 ): boolean {
   switch (step) {
     case "welcome":
       return true;
-    case "health":
-      return state.healthGoal !== null;
-    case "health-followup":
-      return Boolean(state.details.outingStyle);
-    case "interests":
-      return state.interests.length > 0;
+    case "mode":
+      return state.journeyMode !== null;
+    case "mode-followup":
+      if (!state.journeyMode) return false;
+      if (state.journeyMode === "mindfulness") return state.healthGoal !== null;
+      if (state.journeyMode === "social") return state.socialVibes.length > 0;
+      return state.timeBudget !== null;
     case "launch":
       return true;
   }
 }
 
 export function getLaunchSummary(state: {
+  journeyMode: JourneyMode | null;
   healthGoal: HealthGoal | null;
-  interests: Interest[];
+  socialVibes: SocialVibe[];
+  timeBudget: TimeBudget | null;
   details: OnboardingDetails;
 }): string[] {
   const lines: string[] = [];
 
-  if (state.healthGoal) {
-    const goalLabel =
-      state.healthGoal === "gentle"
-        ? "Gentle stroll"
-        : state.healthGoal === "moderate"
-          ? "Moderate walk"
-          : "Active explorer";
-    lines.push(goalLabel);
+  if (state.journeyMode) {
+    lines.push(getJourneyModeLabel(state.journeyMode));
   }
 
-  if (state.details.outingStyle) {
-    const style = OUTING_STYLE_OPTIONS.find(
-      (option) => option.value === state.details.outingStyle,
+  if (state.journeyMode === "mindfulness" && state.healthGoal) {
+    const goal = HEALTH_GOAL_OPTIONS.find((option) => option.value === state.healthGoal);
+    if (goal) lines.push(goal.label);
+  }
+
+  if (state.journeyMode === "social" && state.socialVibes.length > 0) {
+    lines.push(
+      ...state.socialVibes.map(
+        (vibe) =>
+          SOCIAL_VIBE_OPTIONS.find((option) => option.value === vibe)?.label ?? vibe,
+      ),
     );
-    if (style) lines.push(style.label);
   }
 
-  if (state.interests.length > 0) {
-    lines.push(...getInterestLabels(state.interests).slice(0, 4));
-    if (state.interests.length > 4) {
-      lines.push(`+${state.interests.length - 4} more`);
-    }
+  if (state.journeyMode === "health_optimised" && state.timeBudget) {
+    const budget = TIME_BUDGET_OPTIONS.find(
+      (option) => option.value === state.timeBudget,
+    );
+    if (budget) lines.push(budget.label);
   }
 
   return lines;
 }
+
+export {
+  SOCIAL_VIBE_OPTIONS,
+  TIME_BUDGET_OPTIONS,
+  healthGoalFromTimeBudget,
+  getModeFollowUpPrompt,
+};

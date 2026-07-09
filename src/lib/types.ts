@@ -20,11 +20,17 @@ export type Interest = HistoryInterest | FoodInterest;
 
 export type OutingStyle = "scenic" | "direct" | "explorer";
 
-export type JourneyMode = "mindfulness" | "social";
+export type JourneyMode = "mindfulness" | "social" | "health_optimised";
+
+export type SocialVibe = "food" | "shops" | "drinks";
+
+export type TimeBudget = "45" | "60";
 
 export type OnboardingDetails = {
   outingStyle?: OutingStyle;
   journeyMode?: JourneyMode;
+  socialVibes?: SocialVibe[];
+  timeBudget?: TimeBudget;
 };
 
 export type UserPreferences = {

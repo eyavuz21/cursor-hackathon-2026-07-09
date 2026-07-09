@@ -15,8 +15,8 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
           Let&apos;s plan your perfect wander
         </h1>
         <p className="onboarding-animate-fade-up onboarding-delay-3 max-w-md text-base leading-relaxed text-muted">
-          A few quick questions — we&apos;ll ask follow-ups based on what you pick
-          — then surface nearby spots made for you.
+          Pick your vibe, answer one quick question, and we&apos;ll surface nearby
+          spots made for you.
         </p>
       </div>
 

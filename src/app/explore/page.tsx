@@ -12,8 +12,8 @@ import {
 } from "@/lib/preferences";
 import { getInterestLabels } from "@/lib/interests";
 import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
+import { SOCIAL_VIBE_OPTIONS, TIME_BUDGET_OPTIONS } from "@/lib/onboarding";
 import { getSearchRadiusMeters } from "@/lib/places";
-import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
 import type { JourneyMode, PlaceResult, UserPreferences } from "@/lib/types";
 import { AppHeader } from "@/components/AppHeader";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
@@ -192,9 +192,19 @@ export default function ExplorePage() {
     preferences?.interests.length
       ? getInterestLabels(preferences.interests).join(", ")
       : "";
-  const outingLabel = preferences?.details?.outingStyle
-    ? OUTING_STYLE_OPTIONS.find(
-        (option) => option.value === preferences.details?.outingStyle,
+  const socialVibeLabels =
+    preferences?.details?.socialVibes && preferences.details.socialVibes.length > 0
+      ? preferences.details.socialVibes
+          .map(
+            (vibe) =>
+              SOCIAL_VIBE_OPTIONS.find((option) => option.value === vibe)?.label ??
+              vibe,
+          )
+          .join(", ")
+      : "";
+  const timeBudgetLabel = preferences?.details?.timeBudget
+    ? TIME_BUDGET_OPTIONS.find(
+        (option) => option.value === preferences.details?.timeBudget,
       )?.label
     : null;
   const journeyModeLabel = preferences
@@ -215,7 +225,8 @@ export default function ExplorePage() {
                 healthLabel,
                 chosenRadiusLabel || null,
                 interestLabels || null,
-                outingLabel,
+                socialVibeLabels || null,
+                timeBudgetLabel,
                 journeyModeLabel,
                 "4.5+ stars",
               ]

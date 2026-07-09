@@ -2,24 +2,14 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type {
-  HealthGoal,
-  Interest,
-  OnboardingDetails,
-  OutingStyle,
-} from "@/lib/types";
-import {
-  getOnboardingSteps,
-  isStepComplete,
-  OUTING_STYLE_OPTIONS,
-  type OnboardingStepId,
-} from "@/lib/onboarding";
+import type { HealthGoal, JourneyMode, SocialVibe, TimeBudget } from "@/lib/types";
+import { getOnboardingSteps, isStepComplete, type OnboardingStepId } from "@/lib/onboarding";
+import { derivePreferencesFromMode } from "@/lib/mode-preferences";
 import { savePreferences } from "@/lib/preferences";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { HealthStep } from "@/components/onboarding/HealthStep";
-import { InterestsStep } from "@/components/onboarding/InterestsStep";
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
-import { HealthFollowUpStep } from "@/components/onboarding/HealthFollowUpStep";
+import { ModeStep } from "@/components/onboarding/ModeStep";
+import { ModeFollowUpStep } from "@/components/onboarding/ModeFollowUpStep";
 import { LaunchStep } from "@/components/onboarding/LaunchStep";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { StepTransition } from "@/components/onboarding/StepTransition";
@@ -29,9 +19,10 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [journeyMode, setJourneyMode] = useState<JourneyMode | null>(null);
   const [healthGoal, setHealthGoal] = useState<HealthGoal | null>(null);
-  const [interests, setInterests] = useState<Interest[]>([]);
-  const [details, setDetails] = useState<OnboardingDetails>({});
+  const [socialVibes, setSocialVibes] = useState<SocialVibe[]>([]);
+  const [timeBudget, setTimeBudget] = useState<TimeBudget | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +32,8 @@ export default function OnboardingPage() {
   const isLaunch = currentStep === "launch";
 
   const stepState = useMemo(
-    () => ({ healthGoal, interests, details }),
-    [healthGoal, interests, details],
+    () => ({ journeyMode, healthGoal, socialVibes, timeBudget }),
+    [journeyMode, healthGoal, socialVibes, timeBudget],
   );
 
   const canContinue = isStepComplete(currentStep, stepState);
@@ -53,26 +44,28 @@ export default function OnboardingPage() {
     setError(null);
   }
 
-  function handleHealthGoalChange(goal: HealthGoal) {
-    setHealthGoal(goal);
-    setDetails((current) => ({
-      ...current,
-      outingStyle: undefined,
-    }));
-  }
-
-  function handleInterestsChange(nextInterests: Interest[]) {
-    setInterests(nextInterests);
+  function handleModeChange(mode: JourneyMode) {
+    setJourneyMode(mode);
+    setHealthGoal(null);
+    setSocialVibes([]);
+    setTimeBudget(null);
   }
 
   const handleLaunchComplete = useCallback(async () => {
-    if (!healthGoal || interests.length === 0 || saving) return;
+    if (!journeyMode || saving) return;
 
     setSaving(true);
     setError(null);
 
     try {
-      await savePreferences({ healthGoal, interests, details });
+      const preferences = derivePreferencesFromMode({
+        journeyMode,
+        healthGoal,
+        socialVibes,
+        timeBudget: timeBudget ?? undefined,
+      });
+
+      await savePreferences(preferences);
       router.push("/explore");
     } catch (saveError) {
       setError(
@@ -84,11 +77,10 @@ export default function OnboardingPage() {
       setStepIndex(Math.max(0, steps.length - 2));
       setDirection("back");
     }
-  }, [details, healthGoal, interests, router, saving, steps.length]);
+  }, [healthGoal, journeyMode, router, saving, socialVibes, steps.length, timeBudget]);
 
   function handleNext() {
     if (!canContinue || saving) return;
-
     if (currentStep === "launch") return;
 
     const nextIndex = effectiveStepIndex + 1;
@@ -107,30 +99,27 @@ export default function OnboardingPage() {
     switch (step) {
       case "welcome":
         return <WelcomeStep onStart={handleNext} />;
-      case "health":
-        return (
-          <HealthStep value={healthGoal} onChange={handleHealthGoalChange} />
-        );
-      case "health-followup":
-        return healthGoal ? (
-          <HealthFollowUpStep
+      case "mode":
+        return <ModeStep value={journeyMode} onChange={handleModeChange} />;
+      case "mode-followup":
+        return journeyMode ? (
+          <ModeFollowUpStep
+            journeyMode={journeyMode}
             healthGoal={healthGoal}
-            value={details.outingStyle}
-            onChange={(outingStyle: OutingStyle) =>
-              setDetails((current) => ({ ...current, outingStyle }))
-            }
+            socialVibes={socialVibes}
+            timeBudget={timeBudget}
+            onHealthGoalChange={setHealthGoal}
+            onSocialVibesChange={setSocialVibes}
+            onTimeBudgetChange={setTimeBudget}
           />
         ) : null;
-      case "interests":
-        return (
-          <InterestsStep value={interests} onChange={handleInterestsChange} />
-        );
       case "launch":
-        return healthGoal ? (
+        return journeyMode ? (
           <LaunchStep
+            journeyMode={journeyMode}
             healthGoal={healthGoal}
-            interests={interests}
-            details={details}
+            socialVibes={socialVibes}
+            timeBudget={timeBudget}
             onComplete={handleLaunchComplete}
           />
         ) : null;
@@ -144,7 +133,7 @@ export default function OnboardingPage() {
   const progressSteps = steps.filter((step) => step !== "welcome");
   const progressIndex = Math.max(
     0,
-    progressSteps.indexOf(currentStep === "welcome" ? "health" : currentStep),
+    progressSteps.indexOf(currentStep === "welcome" ? "mode" : currentStep),
   );
 
   return (

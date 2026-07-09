@@ -1,4 +1,5 @@
-import type { HealthGoal, Interest, JourneyMode, UserPreferences } from "./types";
+import type { HealthGoal, Interest, JourneyMode, OnboardingDetails, UserPreferences } from "./types";
+import { derivePreferencesFromMode } from "./mode-preferences";
 
 const RADIUS_METERS: Record<HealthGoal, number> = {
   gentle: 800,
@@ -36,7 +37,7 @@ export async function getPreferences(): Promise<UserPreferences | null> {
 export async function savePreferences(
   preferences: UserPreferences,
 ): Promise<void> {
-  const details: Record<string, string> = {};
+  const details: OnboardingDetails = {};
 
   if (preferences.details?.outingStyle) {
     details.outingStyle = preferences.details.outingStyle;
@@ -44,6 +45,14 @@ export async function savePreferences(
 
   if (preferences.details?.journeyMode) {
     details.journeyMode = preferences.details.journeyMode;
+  }
+
+  if (preferences.details?.socialVibes?.length) {
+    details.socialVibes = preferences.details.socialVibes;
+  }
+
+  if (preferences.details?.timeBudget) {
+    details.timeBudget = preferences.details.timeBudget;
   }
 
   const payload = {
@@ -73,10 +82,18 @@ export async function updateJourneyMode(
     throw new Error("No saved preferences found.");
   }
 
+  const derived = derivePreferencesFromMode({
+    journeyMode: mode,
+    healthGoal: current.healthGoal,
+    socialVibes: current.details?.socialVibes,
+    timeBudget: current.details?.timeBudget,
+  });
+
   const updated: UserPreferences = {
-    ...current,
+    ...derived,
     details: {
       ...current.details,
+      ...derived.details,
       journeyMode: mode,
     },
   };

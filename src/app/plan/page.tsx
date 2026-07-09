@@ -15,12 +15,12 @@ import {
   HEALTH_GOAL_OPTIONS,
   updateJourneyMode,
 } from "@/lib/preferences";
-import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
 import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
+import { isHealthOptimisedMode } from "@/lib/mode-preferences";
+import { TIME_BUDGET_OPTIONS } from "@/lib/onboarding";
 import { getSearchRadiusMeters } from "@/lib/places";
 import type { JourneyMode, TripPlan, UserPreferences } from "@/lib/types";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
-import { HealthOptimisedToggle } from "@/components/plan/HealthOptimisedToggle";
 
 type Coordinates = {
   lat: number;
@@ -40,7 +40,6 @@ export default function PlanPage() {
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [modeSaving, setModeSaving] = useState(false);
-  const [healthOptimisedRoute, setHealthOptimisedRoute] = useState(false);
 
   const requestLocation = useCallback(() => {
     return new Promise<Coordinates>((resolve, reject) => {
@@ -121,7 +120,7 @@ export default function PlanPage() {
           healthGoal: preferences.healthGoal,
           interests: preferences.interests,
           details: preferences.details,
-          healthOptimisedRoute,
+          healthOptimisedRoute: isHealthOptimisedMode(preferences.details),
         }),
       });
 
@@ -224,9 +223,9 @@ export default function PlanPage() {
   const interestLabels = preferences?.interests.length
     ? getInterestLabels(preferences.interests).join(", ")
     : "";
-  const outingLabel = preferences?.details?.outingStyle
-    ? OUTING_STYLE_OPTIONS.find(
-        (option) => option.value === preferences.details?.outingStyle,
+  const timeBudgetLabel = preferences?.details?.timeBudget
+    ? TIME_BUDGET_OPTIONS.find(
+        (option) => option.value === preferences.details?.timeBudget,
       )?.label
     : null;
   const radiusMeters = preferences
@@ -243,7 +242,7 @@ export default function PlanPage() {
           ? `${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} detour radius`
           : null,
         interestLabels || null,
-        outingLabel,
+        timeBudgetLabel,
         journeyModeLabel,
       ]
         .filter(Boolean)
@@ -286,12 +285,6 @@ export default function PlanPage() {
                 disabled={modeSaving || planning}
               />
             )}
-
-            <HealthOptimisedToggle
-              checked={healthOptimisedRoute}
-              onChange={setHealthOptimisedRoute}
-              disabled={planning}
-            />
 
             <form onSubmit={handleCreatePlan} className="flex flex-col gap-3 sm:flex-row">
               <input

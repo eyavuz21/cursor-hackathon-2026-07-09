@@ -7,12 +7,16 @@ import type {
   JourneyMode,
   OnboardingDetails,
   OutingStyle,
+  SocialVibe,
+  TimeBudget,
   UserPreferences,
 } from "@/lib/types";
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
 const OUTING_STYLES: OutingStyle[] = ["scenic", "direct", "explorer"];
-const JOURNEY_MODES: JourneyMode[] = ["mindfulness", "social"];
+const JOURNEY_MODES: JourneyMode[] = ["mindfulness", "social", "health_optimised"];
+const SOCIAL_VIBES: SocialVibe[] = ["food", "shops", "drinks"];
+const TIME_BUDGETS: TimeBudget[] = ["45", "60"];
 
 function isValidDetails(details: unknown): details is OnboardingDetails {
   if (!details || typeof details !== "object") return true;
@@ -29,6 +33,23 @@ function isValidDetails(details: unknown): details is OnboardingDetails {
   if (
     value.journeyMode !== undefined &&
     !JOURNEY_MODES.includes(value.journeyMode)
+  ) {
+    return false;
+  }
+
+  if (value.socialVibes !== undefined) {
+    if (!Array.isArray(value.socialVibes)) return false;
+    if (value.socialVibes.length === 0 || value.socialVibes.length > 2) {
+      return false;
+    }
+    if (!value.socialVibes.every((vibe) => SOCIAL_VIBES.includes(vibe))) {
+      return false;
+    }
+  }
+
+  if (
+    value.timeBudget !== undefined &&
+    !TIME_BUDGETS.includes(value.timeBudget)
   ) {
     return false;
   }
@@ -89,7 +110,10 @@ function parseDetails(raw: unknown): OnboardingDetails | undefined {
   if (!isValidDetails(details)) return undefined;
 
   const hasValues =
-    details.outingStyle || details.journeyMode;
+    details.outingStyle ||
+    details.journeyMode ||
+    (details.socialVibes && details.socialVibes.length > 0) ||
+    details.timeBudget;
 
   return hasValues ? details : undefined;
 }

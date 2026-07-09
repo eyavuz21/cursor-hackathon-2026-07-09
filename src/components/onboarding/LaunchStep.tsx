@@ -2,22 +2,37 @@
 
 import { useEffect } from "react";
 import { getLaunchSummary } from "@/lib/onboarding";
-import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
+import type {
+  HealthGoal,
+  JourneyMode,
+  OnboardingDetails,
+  SocialVibe,
+  TimeBudget,
+} from "@/lib/types";
 
 type LaunchStepProps = {
-  healthGoal: HealthGoal;
-  interests: Interest[];
-  details: OnboardingDetails;
+  journeyMode: JourneyMode;
+  healthGoal: HealthGoal | null;
+  socialVibes: SocialVibe[];
+  timeBudget: TimeBudget | null;
   onComplete: () => void;
 };
 
 export function LaunchStep({
+  journeyMode,
   healthGoal,
-  interests,
-  details,
+  socialVibes,
+  timeBudget,
   onComplete,
 }: LaunchStepProps) {
-  const summary = getLaunchSummary({ healthGoal, interests, details });
+  const details: OnboardingDetails = { journeyMode };
+  const summary = getLaunchSummary({
+    journeyMode,
+    healthGoal,
+    socialVibes,
+    timeBudget,
+    details,
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(onComplete, 2200);
@@ -28,18 +43,14 @@ export function LaunchStep({
     <div className="flex flex-col items-start gap-8 py-4">
       <div className="flex flex-col gap-3">
         <p className="brand-label">Preparing your guide</p>
-        <h2 className="brand-heading">
-          Crafting your wander...
-        </h2>
-        <p className="text-sm text-muted">
-          Mapping nearby spots to your vibe
-        </p>
+        <h2 className="brand-heading">Crafting your wander...</h2>
+        <p className="text-sm text-muted">Mapping nearby spots to your vibe</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {summary.map((line, index) => (
           <span
-            key={line}
+            key={`${line}-${index}`}
             className="onboarding-animate-fade-up border border-border bg-accent-subtle px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-foreground"
             style={{ animationDelay: `${0.15 + index * 0.1}s` }}
           >

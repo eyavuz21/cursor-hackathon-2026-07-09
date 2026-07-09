@@ -21,10 +21,19 @@ export const JOURNEY_MODE_OPTIONS: {
     description: "Interesting independent shops and meet-up spots along the way.",
     context: "Weekend stroll",
   },
+  {
+    value: "health_optimised",
+    label: "Health-optimised",
+    shortLabel: "Health",
+    description: "Extra walking and steps woven into your route — within your time budget.",
+    context: "Active outing",
+  },
 ];
 
 export function getJourneyMode(details?: OnboardingDetails): JourneyMode {
-  return details?.journeyMode === "social" ? "social" : "mindfulness";
+  if (details?.journeyMode === "social") return "social";
+  if (details?.journeyMode === "health_optimised") return "health_optimised";
+  return "mindfulness";
 }
 
 export function getJourneyModeLabel(mode: JourneyMode): string {
@@ -37,21 +46,25 @@ export function getJourneyModeLabel(mode: JourneyMode): string {
 const MODE_RADIUS_MULTIPLIER: Record<JourneyMode, number> = {
   mindfulness: 0.85,
   social: 1.15,
+  health_optimised: 1.05,
 };
 
 const MODE_MAX_RESULTS_MULTIPLIER: Record<JourneyMode, number> = {
   mindfulness: 0.75,
   social: 1.2,
+  health_optimised: 1.1,
 };
 
 const MODE_ROUTE_STOPS_OFFSET: Record<JourneyMode, number> = {
   mindfulness: -2,
   social: 2,
+  health_optimised: 3,
 };
 
 const MODE_DETOUR_MULTIPLIER: Record<JourneyMode, number> = {
   mindfulness: 0.55,
   social: 1.1,
+  health_optimised: 1.2,
 };
 
 export type ModePlaceSearch = {
@@ -77,6 +90,15 @@ export const MODE_EXTRA_SEARCHES: Record<JourneyMode, ModePlaceSearch[]> = {
       label: "Markets",
     },
     { includedType: "cafe", textQuery: "coffee meetup cafe", label: "Cafés" },
+  ],
+  health_optimised: [
+    { includedType: "park", textQuery: "scenic walking park", label: "Parks" },
+    {
+      includedType: "tourist_attraction",
+      textQuery: "landmark walking route",
+      label: "Landmarks",
+    },
+    { includedType: "cafe", textQuery: "coffee stop along walk", label: "Cafés" },
   ],
 };
 
@@ -137,6 +159,11 @@ export function scorePlaceForMode(
     // Prefer closer, calmer stops on direct paths.
     const distanceScore = Math.max(0, 1 - distance / 3000);
     return distanceScore * 2 + rating * 0.3 + typeBoost;
+  }
+
+  if (mode === "health_optimised") {
+    const distanceScore = Math.max(0, 1 - distance / 4000);
+    return distanceScore * 1.5 + rating * 0.4 + typeBoost;
   }
 
   // Social: prefer highly rated, discovery-friendly spots.

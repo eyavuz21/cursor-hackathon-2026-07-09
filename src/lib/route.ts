@@ -21,6 +21,7 @@ import {
   getModeDetourMultiplier,
   getModeRouteStopsOffset,
 } from "@/lib/modes";
+import { isHealthOptimisedMode } from "@/lib/mode-preferences";
 
 const EARTH_RADIUS_METERS = 6_371_000;
 
@@ -167,15 +168,16 @@ function selectHealthOptimisedStops(
   places: PlaceResult[],
   maxDetourMeters: number,
   directMeters: number,
+  maxWalkMinutes: number = MAX_WALK_MINUTES,
 ): PlaceResult[] {
   const directMinutes = estimateWalkMinutes(directMeters);
 
-  if (directMinutes >= MAX_WALK_MINUTES - WALK_TIME_BUFFER_MINUTES) {
+  if (directMinutes >= maxWalkMinutes - WALK_TIME_BUFFER_MINUTES) {
     return selectPlacesAlongRoute(start, end, places, 1, maxDetourMeters * 0.4);
   }
 
   const slackMinutes =
-    MAX_WALK_MINUTES - WALK_TIME_BUFFER_MINUTES - directMinutes;
+    maxWalkMinutes - WALK_TIME_BUFFER_MINUTES - directMinutes;
   const maxTotalMeters =
     directMeters + slackMinutes * WALKING_SPEED_M_PER_MIN * 0.92;
 
@@ -224,7 +226,7 @@ function selectHealthOptimisedStops(
     selected.push(entry.place);
     currentDistance = trialDistance;
 
-    if (estimateWalkMinutes(currentDistance) >= MAX_WALK_MINUTES - WALK_TIME_BUFFER_MINUTES) {
+    if (estimateWalkMinutes(currentDistance) >= maxWalkMinutes - WALK_TIME_BUFFER_MINUTES) {
       break;
     }
   }
@@ -242,6 +244,7 @@ function buildRouteStats(
   recommendations: PlaceResult[],
   totalDistanceMeters: number,
   healthOptimised: boolean,
+  maxWalkMinutes: number = MAX_WALK_MINUTES,
 ): RouteStats {
   const directDistanceMeters = haversineMeters(start, destination);
   const directDurationMinutes = estimateWalkMinutes(directDistanceMeters);
@@ -256,7 +259,7 @@ function buildRouteStats(
     estimatedDurationMinutes,
     estimatedSteps,
     extraStepsVsDirect: Math.max(0, estimatedSteps - directSteps),
-    withinHourCap: estimatedDurationMinutes <= MAX_WALK_MINUTES,
+    withinHourCap: estimatedDurationMinutes <= maxWalkMinutes,
   };
 }
 
@@ -356,7 +359,10 @@ export async function buildTripPlan(
   preferences: UserPreferences,
   options?: { healthOptimisedRoute?: boolean },
 ): Promise<TripPlan> {
-  const healthOptimised = options?.healthOptimisedRoute ?? false;
+  const healthOptimised =
+    options?.healthOptimisedRoute ?? isHealthOptimisedMode(preferences.details);
+  const maxWalkMinutes =
+    preferences.details?.timeBudget === "45" ? 45 : MAX_WALK_MINUTES;
   const mode = getJourneyMode(preferences.details);
   const radius = Math.min(
     getSearchRadiusMeters(preferences.healthGoal, preferences.details),
@@ -399,6 +405,7 @@ export async function buildTripPlan(
         allPlaces,
         maxDetourMeters,
         directMeters,
+        maxWalkMinutes,
       )
     : selectPlacesAlongRoute(
         start,
@@ -420,6 +427,7 @@ export async function buildTripPlan(
     recommendations,
     totalDistanceMeters,
     healthOptimised,
+    maxWalkMinutes,
   );
 
   return {

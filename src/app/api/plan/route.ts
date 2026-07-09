@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
 import { geocodeDestination } from "@/lib/google-places";
 import { buildTripPlan } from "@/lib/route";
+import { isHealthOptimisedMode } from "@/lib/mode-preferences";
 import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
 
 type PlanRequest = {
@@ -99,7 +100,10 @@ export async function POST(request: Request) {
         interests: normalizedInterests,
         details,
       },
-      { healthOptimisedRoute: healthOptimisedRoute === true },
+      {
+        healthOptimisedRoute:
+          healthOptimisedRoute === true || isHealthOptimisedMode(details),
+      },
     );
 
     return NextResponse.json({ plan });
