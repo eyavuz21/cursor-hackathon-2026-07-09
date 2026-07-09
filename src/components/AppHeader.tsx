@@ -22,6 +22,12 @@ export function AppHeader({ subtitle, actions }: AppHeaderProps) {
                 Explore
               </Link>
               <Link
+                href="/shop"
+                className="px-3 py-1.5 font-medium tracking-wide text-muted transition-colors hover:text-foreground"
+              >
+                Shop planner
+              </Link>
+              <Link
                 href="/plan"
                 className="px-3 py-1.5 font-medium tracking-wide text-muted transition-colors hover:text-foreground"
               >
