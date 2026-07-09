@@ -13,6 +13,7 @@ import { getInterestLabels } from "@/lib/interests";
 import { getSearchRadiusMeters } from "@/lib/places";
 import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
 import type { PlaceResult, UserPreferences } from "@/lib/types";
+import { saveRecommendedPlaces } from "@/lib/recommended-places";
 import { AppHeader } from "@/components/AppHeader";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
@@ -37,6 +38,9 @@ export default function ExplorePage() {
     minMeters: number | null;
     maxMeters: number | null;
   } | null>(null);
+  const [journeyPlaceIds, setJourneyPlaceIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const loadPlaces = useCallback(
     async (position: Coordinates, prefs: UserPreferences) => {
@@ -70,6 +74,8 @@ export default function ExplorePage() {
       setSearchRadiusMeters(data.searchRadiusMeters ?? null);
       setDistanceSpread(data.distanceSpread ?? null);
       setSelectedPlaceId(data.places?.[0]?.id ?? null);
+      const allIds = new Set((data.places ?? []).map((place) => place.id));
+      setJourneyPlaceIds(allIds);
     },
     [],
   );
@@ -138,6 +144,24 @@ export default function ExplorePage() {
 
     init();
   }, [router, requestLocation]);
+
+  function handleToggleJourneyPlace(placeId: string) {
+    setJourneyPlaceIds((current) => {
+      const next = new Set(current);
+      if (next.has(placeId)) {
+        next.delete(placeId);
+      } else {
+        next.add(placeId);
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!coords || places.length === 0) return;
+
+    saveRecommendedPlaces(coords, places, Array.from(journeyPlaceIds));
+  }, [coords, places, journeyPlaceIds]);
 
   async function handleStartOver() {
     await clearPreferences();
@@ -234,7 +258,9 @@ export default function ExplorePage() {
               Planning a journey?
             </span>
             <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-              Tell us where you&apos;re headed and we&apos;ll weave recommendations into your route.
+              {journeyPlaceIds.size > 0
+                ? `Build a route using your ${journeyPlaceIds.size} selected recommendation${journeyPlaceIds.size === 1 ? "" : "s"}.`
+                : "Select recommendations below, then plan your route."}
             </span>
           </div>
           <span className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -289,11 +315,16 @@ export default function ExplorePage() {
                 {spreadLabel && (
                   <p className="text-sm text-muted">{spreadLabel}</p>
                 )}
+                <p className="text-sm text-muted">
+                  Check the places you want on your journey route.
+                </p>
               </div>
               <PlaceList
                 places={places}
                 selectedPlaceId={selectedPlaceId}
                 onSelectPlace={handleSelectPlace}
+                journeyPlaceIds={journeyPlaceIds}
+                onToggleJourneyPlace={handleToggleJourneyPlace}
               />
             </section>
           </>

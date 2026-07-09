@@ -15,7 +15,12 @@ import {
 } from "@/lib/preferences";
 import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
 import { getSearchRadiusMeters } from "@/lib/places";
-import type { TripPlan, UserPreferences } from "@/lib/types";
+import {
+  getRecommendedPlaces,
+  getSelectedRecommendedPlaces,
+  saveRecommendedPlaces,
+} from "@/lib/recommended-places";
+import type { PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
 
 type Coordinates = {
   lat: number;
@@ -34,6 +39,8 @@ export default function PlanPage() {
   const [planning, setPlanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [recommendedPlaces, setRecommendedPlaces] = useState<PlaceResult[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   const requestLocation = useCallback(() => {
     return new Promise<Coordinates>((resolve, reject) => {
@@ -61,6 +68,51 @@ export default function PlanPage() {
     });
   }, []);
 
+  const loadRecommendedPlaces = useCallback(
+    async (position: Coordinates, prefs: UserPreferences) => {
+      const saved = getRecommendedPlaces();
+      if (saved) {
+        setRecommendedPlaces(getSelectedRecommendedPlaces(saved));
+        return;
+      }
+
+      setLoadingRecommendations(true);
+
+      try {
+        const response = await fetch("/api/places", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lat: position.lat,
+            lng: position.lng,
+            healthGoal: prefs.healthGoal,
+            interests: prefs.interests,
+            details: prefs.details,
+          }),
+        });
+
+        const data = (await response.json()) as {
+          places?: PlaceResult[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to load recommendations.");
+        }
+
+        const places = data.places ?? [];
+        const selectedIds = places.map((place) => place.id);
+        saveRecommendedPlaces(position, places, selectedIds);
+        setRecommendedPlaces(places);
+      } catch {
+        setRecommendedPlaces([]);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     async function init() {
       try {
@@ -71,8 +123,10 @@ export default function PlanPage() {
         }
 
         setPreferences(prefs);
-        setCoords(await requestLocation());
+        const position = await requestLocation();
+        setCoords(position);
         setSavedPlans(getSavedPlans());
+        await loadRecommendedPlaces(position, prefs);
       } catch (initError) {
         setError(
           initError instanceof Error
@@ -85,7 +139,7 @@ export default function PlanPage() {
     }
 
     void init();
-  }, [requestLocation, router]);
+  }, [loadRecommendedPlaces, requestLocation, router]);
 
   async function handleCreatePlan(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,6 +149,13 @@ export default function PlanPage() {
     const query = destinationQuery.trim();
     if (!query) {
       setError("Tell us where you want to go.");
+      return;
+    }
+
+    if (recommendedPlaces.length === 0) {
+      setError(
+        "No recommendations to plan with yet. Visit Explore first or refresh to load nearby picks.",
+      );
       return;
     }
 
@@ -114,6 +175,7 @@ export default function PlanPage() {
           healthGoal: preferences.healthGoal,
           interests: preferences.interests,
           details: preferences.details,
+          recommendedPlaces,
         }),
       });
 
@@ -129,6 +191,14 @@ export default function PlanPage() {
       const nextPlan = data.plan ?? null;
       setPlan(nextPlan);
       setSelectedStopId(nextPlan?.stops[1]?.id ?? nextPlan?.stops[0]?.id ?? null);
+
+      const recommendationStops =
+        nextPlan?.stops.filter((stop) => stop.type === "recommendation").length ?? 0;
+      if (nextPlan && recommendationStops === 0) {
+        setError(
+          "Your route was created, but none of your Explore picks fit along the way to that destination. Try a closer landmark or update your selections on Explore.",
+        );
+      }
     } catch (planError) {
       setError(
         planError instanceof Error
@@ -239,10 +309,30 @@ export default function PlanPage() {
                 Plan your outing
               </h1>
               <p className="text-sm leading-relaxed text-muted">
-                Tell us where you want to go. We&apos;ll weave personalised
+                Tell us where you want to go. We&apos;ll weave your Explore
                 recommendations into the route based on your walking pace and
                 interests.
               </p>
+              {loadingRecommendations ? (
+                <p className="text-sm text-muted">Loading your recommendations...</p>
+              ) : recommendedPlaces.length > 0 ? (
+                <p className="text-sm text-muted">
+                  Using {recommendedPlaces.length} recommendation
+                  {recommendedPlaces.length === 1 ? "" : "s"} from Explore.
+                  {" "}
+                  <a href="/explore" className="brand-link">
+                    Change picks on Explore
+                  </a>
+                </p>
+              ) : (
+                <p className="text-sm text-muted">
+                  No recommendations saved yet.{" "}
+                  <a href="/explore" className="brand-link">
+                    Browse Explore first
+                  </a>{" "}
+                  to pick places for your journey.
+                </p>
+              )}
             </div>
 
             <form onSubmit={handleCreatePlan} className="flex flex-col gap-3 sm:flex-row">
@@ -255,7 +345,9 @@ export default function PlanPage() {
               />
               <button
                 type="submit"
-                disabled={planning || !destinationQuery.trim()}
+                disabled={
+                  planning || !destinationQuery.trim() || recommendedPlaces.length === 0
+                }
                 className="brand-button-primary whitespace-nowrap"
               >
                 {planning ? "Building route..." : "Build journal route"}
@@ -336,7 +428,8 @@ export default function PlanPage() {
                   </h2>
                   <p className="text-sm text-muted">
                     {plan.destination.name} · {formatDistance(plan.totalDistanceMeters)} with
-                    recommendations woven in
+                    {plan.stops.filter((stop) => stop.type === "recommendation").length}{" "}
+                    Explore picks woven in
                   </p>
                 </div>
                 <button

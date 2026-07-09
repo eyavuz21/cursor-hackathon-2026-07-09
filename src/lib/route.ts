@@ -7,7 +7,7 @@ import type {
   TripPlan,
   UserPreferences,
 } from "@/lib/types";
-import { getSearchRadiusMeters, searchRecommendations } from "@/lib/places";
+import { getSearchRadiusMeters, searchRecommendations, dedupePlaces } from "@/lib/places";
 
 const EARTH_RADIUS_METERS = 6_371_000;
 
@@ -76,6 +76,7 @@ function selectPlacesAlongRoute(
   places: PlaceResult[],
   maxStops: number,
   maxDetourMeters: number,
+  options?: { relaxDetour?: boolean },
 ): PlaceResult[] {
   const scored = places
     .map((place) => {
@@ -87,12 +88,11 @@ function selectPlacesAlongRoute(
 
       return { place, ...projection };
     })
-    .filter(
-      (entry) =>
-        entry.t > 0.05 &&
-        entry.t < 0.95 &&
-        entry.perpendicularMeters <= maxDetourMeters,
-    )
+    .filter((entry) => {
+      if (entry.t <= 0.05 || entry.t >= 0.95) return false;
+      if (options?.relaxDetour) return true;
+      return entry.perpendicularMeters <= maxDetourMeters;
+    })
     .sort((a, b) => {
       if (b.place.rating !== undefined && a.place.rating !== undefined) {
         const ratingDiff = b.place.rating - a.place.rating;
@@ -118,6 +118,38 @@ function selectPlacesAlongRoute(
     (a, b) =>
       projectOntoRoute({ lat: a.lat, lng: a.lng }, start, end).t -
       projectOntoRoute({ lat: b.lat, lng: b.lng }, start, end).t,
+  );
+}
+
+export function pickRouteStopsFromRecommendations(
+  start: LatLng,
+  destination: LatLng,
+  recommendedPlaces: PlaceResult[],
+  maxStops: number,
+  maxDetourMeters: number,
+): PlaceResult[] {
+  const uniquePlaces = dedupePlaces(recommendedPlaces);
+  if (uniquePlaces.length === 0) return [];
+
+  const alongRoute = selectPlacesAlongRoute(
+    start,
+    destination,
+    uniquePlaces,
+    maxStops,
+    maxDetourMeters,
+  );
+
+  if (alongRoute.length > 0) {
+    return alongRoute;
+  }
+
+  return selectPlacesAlongRoute(
+    start,
+    destination,
+    uniquePlaces,
+    maxStops,
+    maxDetourMeters,
+    { relaxDetour: true },
   );
 }
 
@@ -215,35 +247,49 @@ export async function buildTripPlan(
   start: LatLng & { name?: string },
   destination: GeocodedDestination,
   preferences: UserPreferences,
+  recommendedPlaces?: PlaceResult[],
 ): Promise<TripPlan> {
   const radius = Math.min(
     getSearchRadiusMeters(preferences.healthGoal, preferences.details),
     50_000,
   );
   const maxStops = MAX_STOPS_BY_HEALTH[preferences.healthGoal];
-  const samplePoints = sampleRoutePoints(start, destination, 4);
 
-  const placeBatches = await Promise.all(
-    samplePoints.map((point) =>
-      searchRecommendations({
-        apiKey,
-        lat: point.lat,
-        lng: point.lng,
-        healthGoal: preferences.healthGoal,
-        interests: preferences.interests,
-        details: preferences.details,
-      }),
-    ),
-  );
+  let recommendations: PlaceResult[];
 
-  const allPlaces = placeBatches.flat();
-  const recommendations = selectPlacesAlongRoute(
-    start,
-    destination,
-    allPlaces,
-    maxStops,
-    radius,
-  );
+  if (recommendedPlaces && recommendedPlaces.length > 0) {
+    recommendations = pickRouteStopsFromRecommendations(
+      start,
+      destination,
+      recommendedPlaces,
+      maxStops,
+      radius,
+    );
+  } else {
+    const samplePoints = sampleRoutePoints(start, destination, 4);
+
+    const placeBatches = await Promise.all(
+      samplePoints.map((point) =>
+        searchRecommendations({
+          apiKey,
+          lat: point.lat,
+          lng: point.lng,
+          healthGoal: preferences.healthGoal,
+          interests: preferences.interests,
+          details: preferences.details,
+        }),
+      ),
+    );
+
+    const allPlaces = placeBatches.flat();
+    recommendations = selectPlacesAlongRoute(
+      start,
+      destination,
+      allPlaces,
+      maxStops,
+      radius,
+    );
+  }
 
   const stops = buildStops(start, destination, recommendations);
   const routePath = buildRoutePath(stops);
