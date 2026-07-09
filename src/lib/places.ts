@@ -233,7 +233,151 @@ export function balancePlacesByInterest(
   return selected;
 }
 
-async function searchPlacesForInterest(
+function sortByDistanceAscending(places: PlaceResult[]): PlaceResult[] {
+  return [...places].sort(
+    (a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0),
+  );
+}
+
+function getDistanceBandCount(radiusMeters: number): number {
+  if (radiusMeters <= 1000) return 1;
+  if (radiusMeters <= 2500) return 2;
+  return 3;
+}
+
+/** Pick highly rated places spread across near, mid, and far bands of the search radius. */
+export function spreadPlacesAcrossRadius(
+  places: PlaceResult[],
+  radiusMeters: number,
+  limit: number,
+): PlaceResult[] {
+  if (places.length === 0 || limit <= 0) return [];
+
+  const bandCount = getDistanceBandCount(radiusMeters);
+  const bandSize = radiusMeters / bandCount;
+  const perBand = Math.max(1, Math.ceil(limit / bandCount));
+  const selected: PlaceResult[] = [];
+  const used = new Set<string>();
+
+  for (let band = 0; band < bandCount; band++) {
+    const min = band * bandSize;
+    const max = band === bandCount - 1 ? radiusMeters + 1 : (band + 1) * bandSize;
+
+    const bandPlaces = places
+      .filter((place) => {
+        const distance = place.distanceMeters ?? 0;
+        return distance >= min && distance < max && !used.has(place.id);
+      })
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+
+    for (const place of bandPlaces.slice(0, perBand)) {
+      selected.push(place);
+      used.add(place.id);
+      if (selected.length >= limit) break;
+    }
+  }
+
+  if (selected.length < limit) {
+    const remaining = places
+      .filter((place) => !used.has(place.id))
+      .sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+
+    for (const place of remaining) {
+      selected.push(place);
+      used.add(place.id);
+      if (selected.length >= limit) break;
+    }
+  }
+
+  return sortByDistanceAscending(selected.slice(0, limit));
+}
+
+type SearchAnchor = {
+  lat: number;
+  lng: number;
+  localRadius: number;
+};
+
+function getRadialSearchAnchors(
+  lat: number,
+  lng: number,
+  radiusMeters: number,
+): SearchAnchor[] {
+  if (radiusMeters < 1500) return [];
+
+  const bearings =
+    radiusMeters >= 3500
+      ? [0, 45, 90, 135, 180, 225, 270, 315]
+      : [0, 90, 180, 270];
+  const distanceFractions = radiusMeters >= 3500 ? [0.42, 0.68] : [0.5];
+  const anchors: SearchAnchor[] = [];
+
+  for (const fraction of distanceFractions) {
+    const offsetDistance = radiusMeters * fraction;
+    const localRadius = Math.max(
+      1200,
+      Math.min(radiusMeters * 0.55, radiusMeters - offsetDistance * 0.25),
+    );
+
+    for (const bearing of bearings) {
+      const point = offsetPoint(lat, lng, offsetDistance, bearing);
+      anchors.push({
+        lat: point.lat,
+        lng: point.lng,
+        localRadius,
+      });
+    }
+  }
+
+  return anchors;
+}
+
+function offsetPoint(
+  lat: number,
+  lng: number,
+  distanceMeters: number,
+  bearingDeg: number,
+): { lat: number; lng: number } {
+  const earthRadius = 6371000;
+  const bearing = (bearingDeg * Math.PI) / 180;
+  const lat1 = (lat * Math.PI) / 180;
+  const lng1 = (lng * Math.PI) / 180;
+  const angular = distanceMeters / earthRadius;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angular) +
+      Math.cos(lat1) * Math.sin(angular) * Math.cos(bearing),
+  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(bearing) * Math.sin(angular) * Math.cos(lat1),
+      Math.cos(angular) - Math.sin(lat1) * Math.sin(lat2),
+    );
+
+  return {
+    lat: (lat2 * 180) / Math.PI,
+    lng: (lng2 * 180) / Math.PI,
+  };
+}
+
+function filterPlacesForInterest(
+  places: GooglePlace[],
+  interest: Interest,
+  origin: { lat: number; lng: number },
+): PlaceResult[] {
+  return places
+    .filter(
+      (place) =>
+        meetsMinRating(place) &&
+        isRelevantToInterest(place, interest) &&
+        !isLodgingPlace(place),
+    )
+    .map((place) => normalizePlace(place, origin))
+    .filter((place): place is PlaceResult => place !== null);
+}
+
+async function searchTextForInterest(
   apiKey: string,
   interest: Interest,
   lat: number,
@@ -242,6 +386,7 @@ async function searchPlacesForInterest(
   pageSize: number,
 ): Promise<PlaceResult[]> {
   const config = INTEREST_SEARCH[interest];
+  const origin = { lat, lng };
 
   const response = await fetch(
     "https://places.googleapis.com/v1/places:searchText",
@@ -258,8 +403,8 @@ async function searchPlacesForInterest(
         strictTypeFiltering: true,
         minRating: MIN_PLACE_RATING,
         pageSize,
-        rankPreference: "RELEVANCE",
-        locationBias: {
+        rankPreference: "DISTANCE",
+        locationRestriction: {
           circle: {
             center: { latitude: lat, longitude: lng },
             radius,
@@ -278,15 +423,106 @@ async function searchPlacesForInterest(
     throw new Error(data.error?.message ?? `Failed to search for ${interest}.`);
   }
 
-  return (data.places ?? [])
-    .filter(
-      (place) =>
-        meetsMinRating(place) &&
-        isRelevantToInterest(place, interest) &&
-        !isLodgingPlace(place),
-    )
-    .map((place) => normalizePlace(place, { lat, lng }))
-    .filter((place): place is PlaceResult => place !== null);
+  return filterPlacesForInterest(data.places ?? [], interest, origin);
+}
+
+async function searchNearbyForInterest(
+  apiKey: string,
+  interest: Interest,
+  lat: number,
+  lng: number,
+  radius: number,
+  maxResultCount: number,
+): Promise<PlaceResult[]> {
+  const config = INTEREST_SEARCH[interest];
+  const origin = { lat, lng };
+
+  const response = await fetch(
+    "https://places.googleapis.com/v1/places:searchNearby",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": FIELD_MASK,
+      },
+      body: JSON.stringify({
+        includedTypes: [config.includedType],
+        maxResultCount,
+        rankPreference: "POPULARITY",
+        locationRestriction: {
+          circle: {
+            center: { latitude: lat, longitude: lng },
+            radius,
+          },
+        },
+      }),
+    },
+  );
+
+  const data = (await response.json()) as {
+    places?: GooglePlace[];
+    error?: { message?: string };
+  };
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return filterPlacesForInterest(data.places ?? [], interest, origin);
+}
+
+async function searchPlacesForInterest(
+  apiKey: string,
+  interest: Interest,
+  lat: number,
+  lng: number,
+  radius: number,
+  pageSize: number,
+): Promise<PlaceResult[]> {
+  const origin = { lat, lng };
+  const anchors = getRadialSearchAnchors(lat, lng, radius);
+
+  const [textPlaces, nearbyPlaces, anchorBatches] = await Promise.all([
+    searchTextForInterest(apiKey, interest, lat, lng, radius, pageSize),
+    searchNearbyForInterest(apiKey, interest, lat, lng, radius, pageSize),
+    Promise.all(
+      anchors.map((anchor) =>
+        searchNearbyForInterest(
+          apiKey,
+          interest,
+          anchor.lat,
+          anchor.lng,
+          anchor.localRadius,
+          Math.min(10, pageSize),
+        ),
+      ),
+    ),
+  ]);
+
+  return dedupePlaces([
+    ...textPlaces,
+    ...nearbyPlaces,
+    ...anchorBatches.flat(),
+  ]).filter((place) => (place.distanceMeters ?? 0) <= radius);
+}
+
+export function getPlaceDistanceSpread(places: PlaceResult[]): {
+  minMeters: number | null;
+  maxMeters: number | null;
+} {
+  const distances = places
+    .map((place) => place.distanceMeters)
+    .filter((distance): distance is number => distance !== undefined);
+
+  if (distances.length === 0) {
+    return { minMeters: null, maxMeters: null };
+  }
+
+  return {
+    minMeters: Math.min(...distances),
+    maxMeters: Math.max(...distances),
+  };
 }
 
 export async function searchRecommendations(params: {
@@ -299,10 +535,8 @@ export async function searchRecommendations(params: {
 }): Promise<PlaceResult[]> {
   const { apiKey, lat, lng, healthGoal, interests, details } = params;
   const radius = getSearchRadiusMeters(healthGoal, details);
-  const perInterestLimit = Math.min(
-    10,
-    Math.max(4, Math.ceil(MAX_RECOMMENDATIONS / interests.length)),
-  );
+  const limit = getMaxResultCount(healthGoal);
+  const pageSize = Math.min(20, Math.max(12, limit + 4));
 
   const results = await Promise.all(
     interests.map(async (interest) => {
@@ -312,7 +546,7 @@ export async function searchRecommendations(params: {
         lat,
         lng,
         radius,
-        perInterestLimit,
+        pageSize,
       );
 
       return [interest, places] as const;
@@ -320,11 +554,19 @@ export async function searchRecommendations(params: {
   );
 
   const byInterest = new Map<Interest, PlaceResult[]>(results);
-  const balanced = balancePlacesByInterest(byInterest, MAX_RECOMMENDATIONS);
-
-  return dedupePlaces(
-    sortByQualityThenDistance(balanced).filter(
+  const candidatePool = dedupePlaces(
+    Array.from(byInterest.values()).flat().filter(
       (place) => (place.distanceMeters ?? 0) <= radius,
     ),
   );
+
+  const balanced = spreadPlacesAcrossRadius(
+    candidatePool.length > 0
+      ? candidatePool
+      : balancePlacesByInterest(byInterest, limit),
+    radius,
+    limit,
+  );
+
+  return balanced;
 }

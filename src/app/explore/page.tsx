@@ -33,6 +33,10 @@ export default function ExplorePage() {
   const [searchRadiusMeters, setSearchRadiusMeters] = useState<number | null>(
     null,
   );
+  const [distanceSpread, setDistanceSpread] = useState<{
+    minMeters: number | null;
+    maxMeters: number | null;
+  } | null>(null);
 
   const loadPlaces = useCallback(
     async (position: Coordinates, prefs: UserPreferences) => {
@@ -51,6 +55,10 @@ export default function ExplorePage() {
       const data = (await response.json()) as {
         places?: PlaceResult[];
         searchRadiusMeters?: number;
+        distanceSpread?: {
+          minMeters: number | null;
+          maxMeters: number | null;
+        };
         error?: string;
       };
 
@@ -60,6 +68,7 @@ export default function ExplorePage() {
 
       setPlaces(data.places ?? []);
       setSearchRadiusMeters(data.searchRadiusMeters ?? null);
+      setDistanceSpread(data.distanceSpread ?? null);
       setSelectedPlaceId(data.places?.[0]?.id ?? null);
     },
     [],
@@ -175,6 +184,18 @@ export default function ExplorePage() {
     (preferences
       ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
       : null);
+  const formatDistance = (meters: number) =>
+    meters >= 1000
+      ? `${(meters / 1000).toFixed(1)} km`
+      : `${meters} m`;
+  const minDistance = distanceSpread?.minMeters;
+  const maxDistance = distanceSpread?.maxMeters;
+  const spreadLabel =
+    minDistance != null && maxDistance != null && minDistance !== maxDistance
+      ? `Results span ${formatDistance(minDistance)}–${formatDistance(maxDistance)}`
+      : maxDistance != null
+        ? `Farthest pick is ${formatDistance(maxDistance)} away`
+        : null;
 
   return (
     <div className="flex flex-1 flex-col bg-background font-sans">
@@ -254,14 +275,19 @@ export default function ExplorePage() {
             </section>
 
             <section className="flex flex-1 flex-col gap-4 lg:max-w-md">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium tracking-tight text-foreground">
-                  Recommendations
-                </h2>
-                {loading && (
-                  <span className="text-sm uppercase tracking-wider text-muted">
-                    Loading...
-                  </span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium tracking-tight text-foreground">
+                    Recommendations
+                  </h2>
+                  {loading && (
+                    <span className="text-sm uppercase tracking-wider text-muted">
+                      Loading...
+                    </span>
+                  )}
+                </div>
+                {spreadLabel && (
+                  <p className="text-sm text-muted">{spreadLabel}</p>
                 )}
               </div>
               <PlaceList
