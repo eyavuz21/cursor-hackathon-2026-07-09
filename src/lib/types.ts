@@ -80,4 +80,15 @@ export type TripPlan = {
   stops: JournalStop[];
   routePath: LatLng[];
   totalDistanceMeters: number;
+  routeStats?: RouteStats;
+};
+
+export type RouteStats = {
+  healthOptimised: boolean;
+  directDistanceMeters: number;
+  directDurationMinutes: number;
+  estimatedDurationMinutes: number;
+  estimatedSteps: number;
+  extraStepsVsDirect: number;
+  withinHourCap: boolean;
 };

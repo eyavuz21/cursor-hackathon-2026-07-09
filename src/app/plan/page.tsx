@@ -8,6 +8,7 @@ import { PlanMap } from "@/components/plan/PlanMap";
 import { getInterestLabels } from "@/lib/interests";
 import { deletePlan, getSavedPlans, savePlan } from "@/lib/journal";
 import { formatDistance } from "@/lib/route";
+import { formatWalkDuration } from "@/lib/health-route";
 import {
   clearPreferences,
   getPreferences,
@@ -19,6 +20,7 @@ import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
 import { getSearchRadiusMeters } from "@/lib/places";
 import type { JourneyMode, TripPlan, UserPreferences } from "@/lib/types";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
+import { HealthOptimisedToggle } from "@/components/plan/HealthOptimisedToggle";
 
 type Coordinates = {
   lat: number;
@@ -38,6 +40,7 @@ export default function PlanPage() {
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [modeSaving, setModeSaving] = useState(false);
+  const [healthOptimisedRoute, setHealthOptimisedRoute] = useState(false);
 
   const requestLocation = useCallback(() => {
     return new Promise<Coordinates>((resolve, reject) => {
@@ -118,6 +121,7 @@ export default function PlanPage() {
           healthGoal: preferences.healthGoal,
           interests: preferences.interests,
           details: preferences.details,
+          healthOptimisedRoute,
         }),
       });
 
@@ -283,6 +287,12 @@ export default function PlanPage() {
               />
             )}
 
+            <HealthOptimisedToggle
+              checked={healthOptimisedRoute}
+              onChange={setHealthOptimisedRoute}
+              disabled={planning}
+            />
+
             <form onSubmit={handleCreatePlan} className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="text"
@@ -376,6 +386,38 @@ export default function PlanPage() {
                     {plan.destination.name} · {formatDistance(plan.totalDistanceMeters)} with
                     recommendations woven in
                   </p>
+                  {plan.routeStats && (
+                    <div className="mt-2 flex flex-col gap-1 text-sm text-muted">
+                      {plan.routeStats.healthOptimised ? (
+                        <>
+                          <span>
+                            Health-optimised ·{" "}
+                            {formatWalkDuration(plan.routeStats.estimatedDurationMinutes)} walk ·{" "}
+                            ~{plan.routeStats.estimatedSteps.toLocaleString()} steps
+                          </span>
+                          <span>
+                            +{plan.routeStats.extraStepsVsDirect.toLocaleString()} steps vs direct
+                            route ({formatWalkDuration(plan.routeStats.directDurationMinutes)})
+                          </span>
+                          {!plan.routeStats.withinHourCap && (
+                            <span className="text-amber-700 dark:text-amber-300">
+                              This route may exceed a 1-hour walk — consider a closer destination.
+                            </span>
+                          )}
+                          {plan.routeStats.directDurationMinutes >= 55 && (
+                            <span className="text-amber-700 dark:text-amber-300">
+                              Your destination is already ~1 hour away — we kept detours minimal.
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span>
+                          ~{formatWalkDuration(plan.routeStats.estimatedDurationMinutes)} walk ·{" "}
+                          ~{plan.routeStats.estimatedSteps.toLocaleString()} steps
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
