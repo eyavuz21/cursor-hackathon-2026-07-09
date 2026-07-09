@@ -4,10 +4,27 @@ import type { LatLng } from "@/lib/types";
 
 export type ShoppingMode = "scavenger" | "efficiency";
 
+export type PriceQuote = {
+  item: string;
+  shopId: string | null;
+  shopName: string;
+  priceGbp: number;
+};
+
+export type LivePriceInput = {
+  quotes: PriceQuote[];
+  basketWinnerShopId: string | null;
+  basketWinnerShopName: string | null;
+  summary: string | null;
+  sources: Array<{ name: string; url: string }>;
+};
+
 export type ShopPlanStop = {
   shop: Supermarket;
   items: string[];
   detourMeters: number;
+  itemPrices?: Record<string, number>;
+  estimatedTotalGbp?: number;
 };
 
 export type ShopPlan = {
@@ -16,6 +33,9 @@ export type ShopPlan = {
   stops: ShopPlanStop[];
   uncoveredItems: string[];
   totalDetourMeters: number;
+  priceSource?: "linkup" | "distance";
+  priceSummary?: string | null;
+  priceSources?: Array<{ name: string; url: string }>;
 };
 
 export function parseShoppingList(raw: string): string[] {
@@ -107,6 +127,209 @@ function nearestShop(
   }
 
   return best;
+}
+
+function cheapestQuotePerItem(
+  quotes: PriceQuote[],
+  items: string[],
+): Map<string, PriceQuote> {
+  const byItem = new Map<string, PriceQuote>();
+
+  for (const item of items) {
+    const normalizedItem = item.toLowerCase();
+    const candidates = quotes.filter(
+      (quote) =>
+        quote.item.toLowerCase() === normalizedItem ||
+        quote.item.toLowerCase().includes(normalizedItem) ||
+        normalizedItem.includes(quote.item.toLowerCase()),
+    );
+
+    if (candidates.length === 0) continue;
+
+    const cheapest = candidates.reduce((best, current) =>
+      current.priceGbp < best.priceGbp ? current : best,
+    );
+
+    byItem.set(item, cheapest);
+  }
+
+  return byItem;
+}
+
+function totalBasketPrice(
+  quotes: PriceQuote[],
+  shopId: string,
+  items: string[],
+): number | null {
+  let total = 0;
+  let matched = 0;
+
+  for (const item of items) {
+    const quote = quotes.find(
+      (entry) =>
+        entry.shopId === shopId && entry.item.toLowerCase() === item.toLowerCase(),
+    );
+
+    if (!quote) continue;
+    total += quote.priceGbp;
+    matched += 1;
+  }
+
+  return matched > 0 ? total : null;
+}
+
+function attachPricesToStop(
+  stop: ShopPlanStop,
+  quotes: PriceQuote[],
+): ShopPlanStop {
+  const itemPrices: Record<string, number> = {};
+
+  for (const item of stop.items) {
+    const quote = quotes.find(
+      (entry) =>
+        entry.shopId === stop.shop.id &&
+        entry.item.toLowerCase() === item.toLowerCase(),
+    );
+    if (quote) {
+      itemPrices[item] = quote.priceGbp;
+    }
+  }
+
+  const pricedValues = Object.values(itemPrices);
+  const estimatedTotalGbp =
+    pricedValues.length > 0
+      ? pricedValues.reduce((sum, value) => sum + value, 0)
+      : undefined;
+
+  return {
+    ...stop,
+    itemPrices: pricedValues.length > 0 ? itemPrices : undefined,
+    estimatedTotalGbp,
+  };
+}
+
+function buildScavengerPlanWithPrices(
+  items: string[],
+  shops: Supermarket[],
+  start: LatLng,
+  destination: LatLng | undefined,
+  livePrices: LivePriceInput,
+): ShopPlan {
+  const corridorShops =
+    shopsAlongCorridor(shops, start, destination).length > 0
+      ? shopsAlongCorridor(shops, start, destination)
+      : shops;
+  const cheapestByItem = cheapestQuotePerItem(livePrices.quotes, items);
+  const stopsByShop = new Map<string, ShopPlanStop>();
+  const uncoveredItems: string[] = [];
+
+  for (const item of items) {
+    const quote = cheapestByItem.get(item);
+    const shop =
+      (quote?.shopId
+        ? corridorShops.find((candidate) => candidate.id === quote.shopId)
+        : null) ??
+      (quote ? corridorShops.find((candidate) => candidate.name === quote.shopName) : null) ??
+      nearestShop(corridorShops, destination ?? start);
+
+    if (!shop) {
+      uncoveredItems.push(item);
+      continue;
+    }
+
+    const existing = stopsByShop.get(shop.id);
+    if (existing) {
+      existing.items.push(item);
+      continue;
+    }
+
+    stopsByShop.set(shop.id, {
+      shop,
+      items: [item],
+      detourMeters: destination
+        ? distanceToSegmentMeters({ lat: shop.lat, lng: shop.lng }, start, destination)
+        : shop.distanceMeters,
+    });
+  }
+
+  const stops = Array.from(stopsByShop.values())
+    .sort((a, b) => a.detourMeters - b.detourMeters)
+    .map((stop) => attachPricesToStop(stop, livePrices.quotes));
+
+  return {
+    mode: "scavenger",
+    items,
+    stops,
+    uncoveredItems,
+    totalDetourMeters: stops.reduce((sum, stop) => sum + stop.detourMeters, 0),
+    priceSource: "linkup",
+    priceSummary: livePrices.summary,
+    priceSources: livePrices.sources,
+  };
+}
+
+function buildEfficiencyPlanWithPrices(
+  items: string[],
+  shops: Supermarket[],
+  start: LatLng,
+  destination: LatLng | undefined,
+  livePrices: LivePriceInput,
+): ShopPlan {
+  const corridorShops =
+    shopsAlongCorridor(shops, start, destination).length > 0
+      ? shopsAlongCorridor(shops, start, destination)
+      : shops;
+  const candidates = corridorShops.length > 0 ? corridorShops : shops;
+
+  let bestShop =
+    (livePrices.basketWinnerShopId
+      ? candidates.find((shop) => shop.id === livePrices.basketWinnerShopId)
+      : null) ??
+    candidates.find((shop) => shop.name === livePrices.basketWinnerShopName) ??
+    null;
+
+  let bestTotal = bestShop
+    ? totalBasketPrice(livePrices.quotes, bestShop.id, items)
+    : null;
+
+  if (!bestShop || bestTotal == null) {
+    for (const shop of candidates) {
+      const total = totalBasketPrice(livePrices.quotes, shop.id, items);
+      if (total == null) continue;
+      if (bestTotal == null || total < bestTotal) {
+        bestTotal = total;
+        bestShop = shop;
+      }
+    }
+  }
+
+  if (!bestShop) {
+    return buildEfficiencyPlan(items, shops, start, destination);
+  }
+
+  const detourMeters = destination
+    ? distanceToSegmentMeters({ lat: bestShop.lat, lng: bestShop.lng }, start, destination)
+    : bestShop.distanceMeters;
+
+  const stop = attachPricesToStop(
+    {
+      shop: bestShop,
+      items,
+      detourMeters,
+    },
+    livePrices.quotes,
+  );
+
+  return {
+    mode: "efficiency",
+    items,
+    stops: [stop],
+    uncoveredItems: [],
+    totalDetourMeters: detourMeters,
+    priceSource: "linkup",
+    priceSummary: livePrices.summary,
+    priceSources: livePrices.sources,
+  };
 }
 
 function buildScavengerPlan(
@@ -232,8 +455,9 @@ export function buildShopPlan(input: {
   shops: Supermarket[];
   start: LatLng;
   destination?: LatLng;
+  livePrices?: LivePriceInput | null;
 }): ShopPlan {
-  const { mode, items, shops, start, destination } = input;
+  const { mode, items, shops, start, destination, livePrices } = input;
 
   if (items.length === 0) {
     return {
@@ -255,6 +479,26 @@ export function buildShopPlan(input: {
     };
   }
 
+  if (livePrices && livePrices.quotes.length > 0) {
+    if (mode === "efficiency") {
+      return buildEfficiencyPlanWithPrices(
+        items,
+        shops,
+        start,
+        destination,
+        livePrices,
+      );
+    }
+
+    return buildScavengerPlanWithPrices(
+      items,
+      shops,
+      start,
+      destination,
+      livePrices,
+    );
+  }
+
   if (mode === "efficiency") {
     return buildEfficiencyPlan(items, shops, start, destination);
   }
@@ -268,4 +512,8 @@ export function formatDetour(meters: number): string {
   }
 
   return `~${Math.round(meters)} m detour`;
+}
+
+export function formatPriceGbp(value: number): string {
+  return `£${value.toFixed(2)}`;
 }

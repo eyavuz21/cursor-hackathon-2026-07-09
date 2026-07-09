@@ -64,9 +64,9 @@ Errands are another form of urban mobility that default maps treat as pure effic
 1. Type or paste your shopping list on [`/shop`](https://cursor-hackathon-2026-07-09.vercel.app/shop)
 2. Optionally set a destination (or plan from your current location)
 3. Wander finds real nearby supermarkets via **OpenStreetMap** (same data layer as ParkAndSave)
-4. The planner orders stops along your walking corridor
+4. When `LINKUP_API_KEY` is set, Wander queries **LinkUp** for live grocery prices and picks stops by cost (Scavenger = cheapest per item, Efficiency = lowest basket)
 
-**ParkAndSave roadmap:** the full [ParkAndSave](https://github.com/eyavuz21/ParkAndSave) stack adds live web price intelligence (LinkUp), parking search, and agent-authored UI (CopilotKit + A2UI). Wander's MVP proves the routing layer; ParkAndSave proves the price layer — together they become a complete errand copilot.
+**ParkAndSave integration:** uses the same LinkUp stack as [ParkAndSave](https://github.com/eyavuz21/ParkAndSave). Without `LINKUP_API_KEY`, the planner falls back to route-based supermarket matching. Parking search and agent-authored UI (CopilotKit + A2UI) remain on the ParkAndSave roadmap.
 
 ---
 
@@ -120,6 +120,7 @@ Add to `.env.local` and [Vercel project settings](https://vercel.com/boyle/curso
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `GOOGLE_MAPS_API_KEY` | Server-side Places + Directions |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client-side Maps JS |
+| `LINKUP_API_KEY` | Live grocery prices on `/shop` (optional; ParkAndSave / LinkUp) |
 
 ### Supabase setup
 
