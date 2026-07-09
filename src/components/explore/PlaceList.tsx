@@ -14,8 +14,8 @@ export function PlaceList({
   if (places.length === 0) {
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-        No places found nearby. Try expanding your search radius or picking more
-        interests.
+        No 4.5+ star places matched your interests within your search radius.
+        Try picking more interests or a wider walk radius.
       </div>
     );
   }
@@ -56,6 +56,13 @@ export function PlaceList({
                     {place.rating !== undefined && (
                       <span className="text-sm text-zinc-600 dark:text-zinc-400">
                         ★ {place.rating.toFixed(1)}
+                      </span>
+                    )}
+                    {place.distanceMeters !== undefined && (
+                      <span className="text-sm text-zinc-500 dark:text-zinc-500">
+                        {place.distanceMeters >= 1000
+                          ? `${(place.distanceMeters / 1000).toFixed(1)} km away`
+                          : `${place.distanceMeters} m away`}
                       </span>
                     )}
                     <a

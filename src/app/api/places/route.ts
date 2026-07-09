@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
-import { searchNearbyPlaces } from "@/lib/google-places";
-import { getSearchRadiusMeters } from "@/lib/places";
+import { searchRecommendations } from "@/lib/places";
 import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
 
 type PlacesRequest = {
@@ -54,16 +53,16 @@ export async function POST(request: Request) {
 
   const { lat, lng, healthGoal, interests, details } = body;
   const normalizedInterests = normalizeInterests(interests as string[]);
-  const radius = getSearchRadiusMeters(healthGoal, details);
 
   try {
-    const places = await searchNearbyPlaces(
+    const places = await searchRecommendations({
       apiKey,
       lat,
       lng,
-      radius,
-      normalizedInterests,
-    );
+      healthGoal,
+      interests: normalizedInterests,
+      details,
+    });
 
     return NextResponse.json({ places });
   } catch (error) {

@@ -176,6 +176,7 @@ export default function ExplorePage() {
                   : null,
                 interestLabels || null,
                 outingLabel,
+                "4.5+ stars",
               ]
                 .filter(Boolean)
                 .join(" · ")

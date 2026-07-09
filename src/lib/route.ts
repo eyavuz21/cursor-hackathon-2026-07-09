@@ -7,8 +7,7 @@ import type {
   TripPlan,
   UserPreferences,
 } from "@/lib/types";
-import { searchNearbyPlaces } from "@/lib/google-places";
-import { getSearchRadiusMeters } from "@/lib/places";
+import { getSearchRadiusMeters, searchRecommendations } from "@/lib/places";
 
 const EARTH_RADIUS_METERS = 6_371_000;
 
@@ -221,19 +220,19 @@ export async function buildTripPlan(
     getSearchRadiusMeters(preferences.healthGoal, preferences.details),
     50_000,
   );
-  const searchRadius = Math.round(radius * 0.85);
   const maxStops = MAX_STOPS_BY_HEALTH[preferences.healthGoal];
   const samplePoints = sampleRoutePoints(start, destination, 4);
 
   const placeBatches = await Promise.all(
     samplePoints.map((point) =>
-      searchNearbyPlaces(
+      searchRecommendations({
         apiKey,
-        point.lat,
-        point.lng,
-        searchRadius,
-        preferences.interests,
-      ),
+        lat: point.lat,
+        lng: point.lng,
+        healthGoal: preferences.healthGoal,
+        interests: preferences.interests,
+        details: preferences.details,
+      }),
     ),
   );
 
