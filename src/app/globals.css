@@ -118,7 +118,6 @@ body {
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  min-height: 4.75rem;
 }
 
 .brand-card-interactive:hover:not(.brand-card-selected) {

@@ -81,22 +81,19 @@ export function ModeStep({
                 role="radio"
                 aria-checked={selected}
                 onClick={() => onModeChange(option.value)}
-                className="brand-card-interactive w-full p-5 text-left"
+                className="brand-card-interactive w-full p-4 text-left"
               >
-                <div className="flex items-start gap-4">
-                  <SelectionIndicator selected={selected} />
-
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="text-base font-medium leading-snug text-foreground">
-                        {option.label}
-                      </span>
-                      <span className="brand-option-badge">{option.context}</span>
-                    </div>
-                    <span className="text-sm leading-relaxed text-muted">
-                      {option.description}
+                <div className="flex w-full flex-col gap-2.5">
+                  <div className="flex w-full items-start gap-3">
+                    <SelectionIndicator selected={selected} />
+                    <span className="min-w-0 flex-1 text-base font-medium leading-snug text-foreground">
+                      {option.label}
                     </span>
                   </div>
+                  <span className="brand-option-badge w-fit">{option.context}</span>
+                  <p className="w-full text-sm leading-relaxed text-muted">
+                    {option.description}
+                  </p>
                 </div>
               </button>
 

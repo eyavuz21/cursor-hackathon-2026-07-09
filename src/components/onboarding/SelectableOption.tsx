@@ -86,18 +86,16 @@ export function SelectableOption({
           selectionType={selectionType}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-base font-medium leading-snug text-foreground">
-              {title}
-            </span>
-            {badge ? (
-              <span className="brand-option-badge">{badge}</span>
-            ) : null}
-          </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <span className="text-base font-medium leading-snug text-foreground">
+            {title}
+          </span>
+          {badge ? (
+            <span className="brand-option-badge w-fit">{badge}</span>
+          ) : null}
 
           {description ? (
-            <span className="text-sm leading-relaxed text-muted">
+            <span className="w-full text-sm leading-relaxed text-muted">
               {description}
             </span>
           ) : null}
