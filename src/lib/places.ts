@@ -16,7 +16,7 @@ import {
 } from "./modes";
 
 export const MIN_PLACE_RATING = 4.5;
-export const MAX_RECOMMENDATIONS = 12;
+export const MAX_RECOMMENDATIONS = 5;
 
 const FIELD_MASK =
   "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.primaryType,places.types,places.userRatingCount";
@@ -652,5 +652,5 @@ export async function searchRecommendations(params: {
     maxResults,
   );
 
-  return sortPlacesForMode(spread, mode).slice(0, maxResults);
+  return sortPlacesForMode(spread, mode).slice(0, MAX_RECOMMENDATIONS);
 }
