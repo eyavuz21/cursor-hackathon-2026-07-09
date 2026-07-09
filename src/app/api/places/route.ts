@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
-import {
-  dedupePlaces,
-  getIncludedTypes,
-  getSearchRadiusMeters,
-  normalizePlace,
-} from "@/lib/places";
+import { searchRecommendations } from "@/lib/places";
 import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
 
 type PlacesRequest = {
@@ -58,50 +53,27 @@ export async function POST(request: Request) {
 
   const { lat, lng, healthGoal, interests, details } = body;
   const normalizedInterests = normalizeInterests(interests as string[]);
-  const radius = getSearchRadiusMeters(healthGoal, details);
-  const includedTypes = getIncludedTypes(normalizedInterests);
 
-  const response = await fetch(
-    "https://places.googleapis.com/v1/places:searchNearby",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask":
-          "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating",
-      },
-      body: JSON.stringify({
-        includedTypes,
-        maxResultCount: 10,
-        rankPreference: "DISTANCE",
-        locationRestriction: {
-          circle: {
-            center: { latitude: lat, longitude: lng },
-            radius,
-          },
-        },
-      }),
-    },
-  );
+  try {
+    const places = await searchRecommendations({
+      apiKey,
+      lat,
+      lng,
+      healthGoal,
+      interests: normalizedInterests,
+      details,
+    });
 
-  const data = (await response.json()) as {
-    places?: unknown[];
-    error?: { message?: string };
-  };
-
-  if (!response.ok) {
+    return NextResponse.json({ places });
+  } catch (error) {
     return NextResponse.json(
-      { error: data.error?.message ?? "Failed to fetch nearby places." },
-      { status: response.status },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch nearby places.",
+      },
+      { status: 500 },
     );
   }
-
-  const places = dedupePlaces(
-    (data.places ?? [])
-      .map((place) => normalizePlace(place as Parameters<typeof normalizePlace>[0]))
-      .filter((place): place is NonNullable<typeof place> => place !== null),
-  );
-
-  return NextResponse.json({ places });
 }

@@ -37,5 +37,6 @@ export type PlaceResult = {
   lat: number;
   lng: number;
   rating?: number;
+  distanceMeters?: number;
   googleMapsUri?: string;
 };

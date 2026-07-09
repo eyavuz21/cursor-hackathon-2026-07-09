@@ -182,6 +182,7 @@ export default function ExplorePage() {
                   : ""}
                 {interestLabels ? ` · ${interestLabels}` : ""}
                 {outingLabel ? ` · ${outingLabel}` : ""}
+                {" · 4.5+ stars"}
               </p>
             )}
           </div>
