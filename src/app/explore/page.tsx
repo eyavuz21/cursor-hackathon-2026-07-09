@@ -8,13 +8,16 @@ import {
   getPreferences,
   getRadiusLabel,
   HEALTH_GOAL_OPTIONS,
+  updateJourneyMode,
 } from "@/lib/preferences";
 import { getInterestLabels } from "@/lib/interests";
+import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
 import { getSearchRadiusMeters } from "@/lib/places";
 import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
-import type { PlaceResult, UserPreferences } from "@/lib/types";
+import type { JourneyMode, PlaceResult, UserPreferences } from "@/lib/types";
 import { saveRecommendedPlaces } from "@/lib/recommended-places";
 import { AppHeader } from "@/components/AppHeader";
+import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
 
@@ -34,6 +37,7 @@ export default function ExplorePage() {
   const [searchRadiusMeters, setSearchRadiusMeters] = useState<number | null>(
     null,
   );
+  const [modeSaving, setModeSaving] = useState(false);
   const [distanceSpread, setDistanceSpread] = useState<{
     minMeters: number | null;
     maxMeters: number | null;
@@ -168,6 +172,29 @@ export default function ExplorePage() {
     router.push("/onboarding");
   }
 
+  async function handleModeChange(mode: JourneyMode) {
+    if (!preferences || !coords || modeSaving) return;
+
+    setModeSaving(true);
+    setError(null);
+
+    try {
+      const updated = await updateJourneyMode(mode);
+      setPreferences(updated);
+      setLoading(true);
+      await loadPlaces(coords, updated);
+    } catch (modeError) {
+      setError(
+        modeError instanceof Error
+          ? modeError.message
+          : "Could not update journey mode.",
+      );
+    } finally {
+      setModeSaving(false);
+      setLoading(false);
+    }
+  }
+
   function handleSelectPlace(placeId: string) {
     setSelectedPlaceId(placeId);
     document
@@ -203,6 +230,9 @@ export default function ExplorePage() {
         (option) => option.value === preferences.details?.outingStyle,
       )?.label
     : null;
+  const journeyModeLabel = preferences
+    ? getJourneyModeLabel(getJourneyMode(preferences.details))
+    : null;
   const radiusMeters =
     searchRadiusMeters ??
     (preferences
@@ -231,6 +261,7 @@ export default function ExplorePage() {
                 chosenRadiusLabel || null,
                 interestLabels || null,
                 outingLabel,
+                journeyModeLabel,
                 "4.5+ stars",
               ]
                 .filter(Boolean)
@@ -249,26 +280,34 @@ export default function ExplorePage() {
       />
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-          <Link
-            href="/plan?create=1"
-            className="flex flex-1 items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
-          >
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                Create your walking route
-              </span>
-              <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-                {journeyPlaceIds.size > 0
-                  ? `Build a route through your ${journeyPlaceIds.size} selected recommendation${journeyPlaceIds.size === 1 ? "" : "s"}.`
-                  : "Select recommendations below, then create your route."}
-              </span>
-            </div>
-            <span className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              Create route →
+        <Link
+          href="/plan?create=1"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
+        >
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+              Create your walking route
             </span>
-          </Link>
-        </div>
+            <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
+              {journeyPlaceIds.size > 0
+                ? `Build a route through your ${journeyPlaceIds.size} selected recommendation${journeyPlaceIds.size === 1 ? "" : "s"}.`
+                : "Select recommendations below, then create your route."}
+            </span>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            Create route →
+          </span>
+        </Link>
+
+        {preferences && (
+          <div className="mt-4">
+            <JourneyModeToggle
+              value={getJourneyMode(preferences.details)}
+              onChange={handleModeChange}
+              disabled={modeSaving || loading}
+            />
+          </div>
+        )}
       </div>
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6 lg:flex-row">

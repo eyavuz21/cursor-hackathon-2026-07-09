@@ -20,8 +20,11 @@ export type Interest = HistoryInterest | FoodInterest;
 
 export type OutingStyle = "scenic" | "direct" | "explorer";
 
+export type JourneyMode = "mindfulness" | "social";
+
 export type OnboardingDetails = {
   outingStyle?: OutingStyle;
+  journeyMode?: JourneyMode;
 };
 
 export type UserPreferences = {
@@ -77,4 +80,15 @@ export type TripPlan = {
   stops: JournalStop[];
   routePath: LatLng[];
   totalDistanceMeters: number;
+  routeStats?: RouteStats;
+};
+
+export type RouteStats = {
+  healthOptimised: boolean;
+  directDistanceMeters: number;
+  directDurationMinutes: number;
+  estimatedDurationMinutes: number;
+  estimatedSteps: number;
+  extraStepsVsDirect: number;
+  withinHourCap: boolean;
 };

@@ -1,4 +1,4 @@
-import type { HealthGoal, Interest, UserPreferences } from "./types";
+import type { HealthGoal, Interest, JourneyMode, UserPreferences } from "./types";
 
 const RADIUS_METERS: Record<HealthGoal, number> = {
   gentle: 800,
@@ -36,12 +36,20 @@ export async function getPreferences(): Promise<UserPreferences | null> {
 export async function savePreferences(
   preferences: UserPreferences,
 ): Promise<void> {
+  const details: Record<string, string> = {};
+
+  if (preferences.details?.outingStyle) {
+    details.outingStyle = preferences.details.outingStyle;
+  }
+
+  if (preferences.details?.journeyMode) {
+    details.journeyMode = preferences.details.journeyMode;
+  }
+
   const payload = {
     healthGoal: preferences.healthGoal,
     interests: preferences.interests,
-    details: preferences.details?.outingStyle
-      ? { outingStyle: preferences.details.outingStyle }
-      : undefined,
+    details: Object.keys(details).length > 0 ? details : undefined,
   };
 
   const response = await fetch("/api/preferences", {
@@ -54,6 +62,27 @@ export async function savePreferences(
   if (!response.ok) {
     await parseResponse(response);
   }
+}
+
+export async function updateJourneyMode(
+  mode: JourneyMode,
+): Promise<UserPreferences> {
+  const current = await getPreferences();
+
+  if (!current) {
+    throw new Error("No saved preferences found.");
+  }
+
+  const updated: UserPreferences = {
+    ...current,
+    details: {
+      ...current.details,
+      journeyMode: mode,
+    },
+  };
+
+  await savePreferences(updated);
+  return updated;
 }
 
 export async function clearPreferences(): Promise<void> {

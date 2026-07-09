@@ -8,19 +8,24 @@ import { PlanMap } from "@/components/plan/PlanMap";
 import { getInterestLabels } from "@/lib/interests";
 import { deletePlan, getSavedPlans, savePlan } from "@/lib/journal";
 import { formatDistance } from "@/lib/route";
+import { formatWalkDuration } from "@/lib/health-route";
 import {
   clearPreferences,
   getPreferences,
   HEALTH_GOAL_OPTIONS,
+  updateJourneyMode,
 } from "@/lib/preferences";
 import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
+import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
 import { getSearchRadiusMeters } from "@/lib/places";
 import {
   getRecommendedPlaces,
   getSelectedRecommendedPlaces,
   saveRecommendedPlaces,
 } from "@/lib/recommended-places";
-import type { PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
+import type { JourneyMode, PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
+import { JourneyModeToggle } from "@/components/JourneyModeToggle";
+import { HealthOptimisedToggle } from "@/components/plan/HealthOptimisedToggle";
 
 type Coordinates = {
   lat: number;
@@ -42,6 +47,8 @@ export default function PlanPage() {
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [recommendedPlaces, setRecommendedPlaces] = useState<PlaceResult[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [modeSaving, setModeSaving] = useState(false);
+  const [healthOptimisedRoute, setHealthOptimisedRoute] = useState(false);
 
   const requestLocation = useCallback(() => {
     return new Promise<Coordinates>((resolve, reject) => {
@@ -177,6 +184,7 @@ export default function PlanPage() {
             interests: preferences.interests,
             details: preferences.details,
             recommendedPlaces,
+            healthOptimisedRoute,
           }),
         });
 
@@ -213,7 +221,7 @@ export default function PlanPage() {
         setPlanning(false);
       }
     },
-    [coords, destinationQuery, preferences, recommendedPlaces],
+    [coords, destinationQuery, healthOptimisedRoute, preferences, recommendedPlaces],
   );
 
   useEffect(() => {
@@ -270,6 +278,31 @@ export default function PlanPage() {
     }
   }
 
+  async function handleModeChange(mode: JourneyMode) {
+    if (!preferences || modeSaving) return;
+
+    setModeSaving(true);
+    setError(null);
+    setSavedMessage(null);
+
+    try {
+      const updated = await updateJourneyMode(mode);
+      setPreferences(updated);
+      setPlan(null);
+      if (coords) {
+        await loadRecommendedPlaces(coords, updated);
+      }
+    } catch (modeError) {
+      setError(
+        modeError instanceof Error
+          ? modeError.message
+          : "Could not update journey mode.",
+      );
+    } finally {
+      setModeSaving(false);
+    }
+  }
+
   async function handleStartOver() {
     await clearPreferences();
     router.push("/onboarding");
@@ -303,6 +336,10 @@ export default function PlanPage() {
     ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
     : null;
 
+  const journeyModeLabel = preferences
+    ? getJourneyModeLabel(getJourneyMode(preferences.details))
+    : null;
+
   const subtitle = preferences
     ? [
         healthLabel,
@@ -311,6 +348,7 @@ export default function PlanPage() {
           : null,
         interestLabels || null,
         outingLabel,
+        journeyModeLabel,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -364,6 +402,20 @@ export default function PlanPage() {
                 </p>
               )}
             </div>
+
+            {preferences && (
+              <JourneyModeToggle
+                value={getJourneyMode(preferences.details)}
+                onChange={handleModeChange}
+                disabled={modeSaving || planning}
+              />
+            )}
+
+            <HealthOptimisedToggle
+              checked={healthOptimisedRoute}
+              onChange={setHealthOptimisedRoute}
+              disabled={planning}
+            />
 
             <form onSubmit={handleCreatePlan} className="flex flex-col gap-3">
               <div className="flex flex-col gap-3 sm:flex-row">
@@ -466,6 +518,33 @@ export default function PlanPage() {
                     Explore stops
                     {plan.destination.name ? ` · ending at ${plan.destination.name}` : ""}
                   </p>
+                  {plan.routeStats && (
+                    <div className="mt-2 flex flex-col gap-1 text-sm text-muted">
+                      {plan.routeStats.healthOptimised ? (
+                        <>
+                          <span>
+                            Health-optimised ·{" "}
+                            {formatWalkDuration(plan.routeStats.estimatedDurationMinutes)} walk ·{" "}
+                            ~{plan.routeStats.estimatedSteps.toLocaleString()} steps
+                          </span>
+                          <span>
+                            +{plan.routeStats.extraStepsVsDirect.toLocaleString()} steps vs direct
+                            route ({formatWalkDuration(plan.routeStats.directDurationMinutes)})
+                          </span>
+                          {!plan.routeStats.withinHourCap && (
+                            <span className="text-amber-700 dark:text-amber-300">
+                              This route may exceed a 1-hour walk — consider a closer destination.
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span>
+                          ~{formatWalkDuration(plan.routeStats.estimatedDurationMinutes)} walk ·{" "}
+                          ~{plan.routeStats.estimatedSteps.toLocaleString()} steps
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
