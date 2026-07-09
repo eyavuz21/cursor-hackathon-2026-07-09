@@ -14,10 +14,10 @@ import {
 } from "./mode-preferences";
 import { HEALTH_GOAL_OPTIONS } from "./preferences";
 
-export type OnboardingStepId = "welcome" | "mode" | "mode-followup" | "launch";
+export type OnboardingStepId = "welcome" | "mode" | "launch";
 
 export function getOnboardingSteps(): OnboardingStepId[] {
-  return ["welcome", "mode", "mode-followup", "launch"];
+  return ["welcome", "mode", "launch"];
 }
 
 export function isStepComplete(
@@ -33,8 +33,6 @@ export function isStepComplete(
     case "welcome":
       return true;
     case "mode":
-      return state.journeyMode !== null;
-    case "mode-followup":
       if (!state.journeyMode) return false;
       if (state.journeyMode === "mindfulness") return state.healthGoal !== null;
       if (state.journeyMode === "social") return state.socialVibes.length > 0;
