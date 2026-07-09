@@ -28,6 +28,13 @@ import { buildWalkingDirectionsUrl } from "@/lib/google-maps-url";
 import type { JourneyMode, PlaceResult, TripPlan, UserPreferences } from "@/lib/types";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { DestinationPicker } from "@/components/plan/DestinationPicker";
+import { LoadingScreen } from "@/components/loading/LoadingScreen";
+import { LoadingOverlay } from "@/components/loading/LoadingOverlay";
+import { StepProgress } from "@/components/loading/StepProgress";
+import { WanderLoader } from "@/components/loading/WanderLoader";
+
+const PLAN_INIT_STEPS = ["Load your profile", "Find your location", "Load your picks"];
+const PLAN_BUILD_STEPS = ["Order your stops", "Compute walking route", "Finalise your journal"];
 
 type Coordinates = {
   lat: number;
@@ -46,7 +53,9 @@ export default function PlanPage() {
   const [savedPlans, setSavedPlans] = useState<TripPlan[]>([]);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initStep, setInitStep] = useState(0);
   const [planning, setPlanning] = useState(false);
+  const [planningStep, setPlanningStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [recommendedPlaces, setRecommendedPlaces] = useState<PlaceResult[]>([]);
@@ -127,17 +136,21 @@ export default function PlanPage() {
   useEffect(() => {
     async function init() {
       try {
+        setInitStep(0);
         const prefs = await getPreferences();
         if (!prefs) {
           router.replace("/onboarding");
           return;
         }
 
+        setInitStep(1);
         setPreferences(prefs);
         const position = await requestLocation();
+        setInitStep(2);
         setCoords(position);
         setSavedPlans(getSavedPlans());
         await loadRecommendedPlaces(position, prefs);
+        setInitStep(3);
       } catch (initError) {
         setError(
           initError instanceof Error
@@ -174,8 +187,14 @@ export default function PlanPage() {
       }
 
       setPlanning(true);
+      setPlanningStep(0);
       setError(null);
       setSavedMessage(null);
+
+      const stepTimers = [
+        window.setTimeout(() => setPlanningStep(1), 900),
+        window.setTimeout(() => setPlanningStep(2), 2200),
+      ];
 
       try {
         const response = await fetch("/api/plan", {
@@ -224,7 +243,9 @@ export default function PlanPage() {
             : "Could not build your route.",
         );
       } finally {
+        stepTimers.forEach((timer) => window.clearTimeout(timer));
         setPlanning(false);
+        setPlanningStep(0);
       }
     },
     [coords, preferences, recommendedPlaces, selectedDestinationId],
@@ -320,14 +341,14 @@ export default function PlanPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
-        <main className="flex flex-col items-center gap-3">
-          <span className="inline-block h-2 w-2 animate-pulse bg-foreground" />
-          <p className="text-sm uppercase tracking-wider text-muted">
-            Preparing your journal planner...
-          </p>
-        </main>
-      </div>
+      <LoadingScreen
+        flowLabel="Plan"
+        title="Preparing your journal planner"
+        subtitle="Setting up your walking route"
+        currentStep={Math.min(initStep + 1, PLAN_INIT_STEPS.length)}
+        totalSteps={PLAN_INIT_STEPS.length}
+        stepLabels={PLAN_INIT_STEPS}
+      />
     );
   }
 
@@ -366,6 +387,15 @@ export default function PlanPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-background font-sans">
+      {planning && (
+        <LoadingOverlay
+          title="Building your walking route"
+          subtitle="Connecting your Explore picks into one journey"
+          steps={PLAN_BUILD_STEPS}
+          activeStepIndex={planningStep}
+        />
+      )}
+
       <AppHeader
         subtitle={subtitle}
         actions={
@@ -380,7 +410,17 @@ export default function PlanPage() {
       />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6">
-        <section className="brand-card p-6">
+        <div className="max-w-3xl">
+          <StepProgress
+            label="Plan"
+            currentStep={plan ? 2 : 1}
+            totalSteps={2}
+            steps={["Choose your destination", "Review your route"]}
+          />
+        </div>
+
+        {!plan && (
+        <section className="brand-card p-6 wander-screen-enter">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <h1 className="brand-heading">
@@ -392,7 +432,10 @@ export default function PlanPage() {
                 way there.
               </p>
               {loadingRecommendations ? (
-                <p className="text-sm text-muted">Loading your recommendations...</p>
+                <div className="flex items-center gap-2 text-sm text-muted">
+                  <WanderLoader size="sm" />
+                  <span>Loading your recommendations...</span>
+                </div>
               ) : recommendedPlaces.length > 0 ? (
                 <p className="text-sm text-muted">
                   Using {recommendedPlaces.length} recommendation
@@ -450,8 +493,9 @@ export default function PlanPage() {
             )}
           </div>
         </section>
+        )}
 
-        {savedPlans.length > 0 && (
+        {!plan && savedPlans.length > 0 && (
           <section className="flex flex-col gap-3">
             <h2 className="brand-label">
               Saved journal entries
@@ -493,7 +537,24 @@ export default function PlanPage() {
         )}
 
         {plan && (
-          <section className="flex flex-col gap-4 lg:flex-row">
+          <div className="flex flex-col gap-4 wander-screen-enter">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-muted">
+                Step 2 — your walking route is ready
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlan(null);
+                  setError(null);
+                  setSavedMessage(null);
+                }}
+                className="brand-button-secondary shrink-0 px-3 py-1.5 text-xs"
+              >
+                Plan again
+              </button>
+            </div>
+            <section className="flex flex-col gap-4 lg:flex-row">
             <div className="h-[360px] shrink-0 lg:h-auto lg:min-h-[560px] lg:flex-1">
               <PlanMap
                 stops={plan.stops}
@@ -578,6 +639,7 @@ export default function PlanPage() {
               </a>
             </div>
           </section>
+          </div>
         )}
       </main>
     </div>

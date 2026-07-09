@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
+import { LoadingScreen } from "@/components/loading/LoadingScreen";
+import { LoadingOverlay } from "@/components/loading/LoadingOverlay";
+import { StepProgress } from "@/components/loading/StepProgress";
 import { formatDetour, formatPriceGbp, type ShopPlan, type ShoppingMode } from "@/lib/shopping";
 import { getPreferences } from "@/lib/preferences";
 import type { UserPreferences } from "@/lib/types";
@@ -11,6 +14,9 @@ type Coordinates = {
   lat: number;
   lng: number;
 };
+
+const SHOP_INIT_STEPS = ["Load your profile", "Find your location"];
+const SHOP_PLAN_STEPS = ["Find supermarkets", "Check live prices", "Build your route"];
 
 const MODE_OPTIONS: {
   value: ShoppingMode;
@@ -41,7 +47,9 @@ export default function ShopPage() {
   const [plan, setPlan] = useState<ShopPlan | null>(null);
   const [priceNote, setPriceNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initStep, setInitStep] = useState(0);
   const [planning, setPlanning] = useState(false);
+  const [planningStep, setPlanningStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const requestLocation = useCallback(() => {
@@ -80,7 +88,9 @@ export default function ShopPage() {
         }
 
         setPreferences(prefs);
+        setInitStep(1);
         setCoords(await requestLocation());
+        setInitStep(2);
       } catch (initError) {
         setError(
           initError instanceof Error
@@ -101,9 +111,15 @@ export default function ShopPage() {
     if (!preferences || !coords) return;
 
     setPlanning(true);
+    setPlanningStep(0);
     setError(null);
     setPlan(null);
     setPriceNote(null);
+
+    const stepTimers = [
+      window.setTimeout(() => setPlanningStep(1), 800),
+      window.setTimeout(() => setPlanningStep(2), 1800),
+    ];
 
     try {
       const response = await fetch("/api/shop-plan", {
@@ -145,31 +161,50 @@ export default function ShopPage() {
           : "Could not build your shopping route.",
       );
     } finally {
+      stepTimers.forEach((timer) => window.clearTimeout(timer));
       setPlanning(false);
+      setPlanningStep(0);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
-        <main className="flex flex-col items-center gap-3">
-          <span className="inline-block h-2 w-2 animate-pulse bg-foreground" />
-          <p className="text-sm uppercase tracking-wider text-muted">
-            Preparing your shopping planner...
-          </p>
-        </main>
-      </div>
+      <LoadingScreen
+        flowLabel="Shop"
+        title="Preparing your shopping planner"
+        subtitle="Finding stores near your route"
+        currentStep={Math.min(initStep + 1, SHOP_INIT_STEPS.length)}
+        totalSteps={SHOP_INIT_STEPS.length}
+        stepLabels={SHOP_INIT_STEPS}
+      />
     );
   }
 
   return (
     <div className="flex flex-1 flex-col bg-background font-sans">
+      {planning && (
+        <LoadingOverlay
+          title="Planning your errand route"
+          subtitle="Matching supermarkets to your list"
+          steps={SHOP_PLAN_STEPS}
+          activeStepIndex={planningStep}
+        />
+      )}
+
       <AppHeader
         subtitle="Spatial shopping planner · ParkAndSave-inspired errand routing"
       />
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-6">
-        <section className="brand-card p-6">
+        <StepProgress
+          label="Shop"
+          currentStep={plan && plan.stops.length > 0 ? 2 : 1}
+          totalSteps={2}
+          steps={["Build your list", "Review your route"]}
+        />
+
+        {(!plan || plan.stops.length === 0) && (
+        <section className="brand-card p-6 wander-screen-enter">
           <div className="flex flex-col gap-2">
             <h1 className="brand-heading">Plan errands en route</h1>
             <p className="text-sm leading-relaxed text-muted">
@@ -260,9 +295,24 @@ export default function ShopPage() {
             </p>
           )}
         </section>
+        )}
 
         {plan && plan.stops.length > 0 && (
-          <section className="flex flex-col gap-4">
+          <section className="flex flex-col gap-4 wander-screen-enter">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-muted">Step 2 — your errand route is ready</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlan(null);
+                  setPriceNote(null);
+                  setError(null);
+                }}
+                className="brand-button-secondary px-3 py-1.5 text-xs"
+              >
+                Plan again
+              </button>
+            </div>
             <div className="flex flex-col gap-1">
               <h2 className="brand-label">Your shopping route</h2>
               <p className="text-sm text-muted">

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { getPreferences } from "@/lib/preferences";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
+import { LoadingScreen } from "@/components/loading/LoadingScreen";
 
 export function HomeRedirect() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState("Starting Wander");
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -16,6 +18,7 @@ export function HomeRedirect() {
 
     async function redirect() {
       try {
+        setMessage("Loading your profile");
         const preferences = await getPreferences();
         router.replace(preferences ? "/explore" : "/onboarding");
       } catch {
@@ -48,11 +51,12 @@ export function HomeRedirect() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
-      <main className="flex flex-col items-center gap-3">
-        <span className="inline-block h-2 w-2 animate-pulse bg-foreground" />
-        <p className="text-sm uppercase tracking-wider text-muted">Loading...</p>
-      </main>
-    </div>
+    <LoadingScreen
+      title={message}
+      subtitle="Personalising your city walk"
+      currentStep={1}
+      totalSteps={1}
+      stepLabels={["Getting ready"]}
+    />
   );
 }

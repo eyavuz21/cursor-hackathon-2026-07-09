@@ -20,11 +20,20 @@ import { AppHeader } from "@/components/AppHeader";
 import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
+import { LoadingScreen } from "@/components/loading/LoadingScreen";
+import { StepProgress } from "@/components/loading/StepProgress";
+import { SkeletonMap } from "@/components/loading/SkeletonMap";
+import { SkeletonPlaceList } from "@/components/loading/SkeletonPlaceList";
+import { WanderLoader } from "@/components/loading/WanderLoader";
 
 type Coordinates = {
   lat: number;
   lng: number;
 };
+
+type ExplorePhase = "locating" | "discovering" | "ready";
+
+const EXPLORE_STEPS = ["Find your location", "Discover nearby places"];
 
 export default function ExplorePage() {
   const router = useRouter();
@@ -33,6 +42,7 @@ export default function ExplorePage() {
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState<ExplorePhase>("locating");
   const [error, setError] = useState<string | null>(null);
   const [searchRadiusMeters, setSearchRadiusMeters] = useState<number | null>(
     null,
@@ -87,6 +97,7 @@ export default function ExplorePage() {
   const requestLocation = useCallback(
     async (prefs: UserPreferences) => {
       setLoading(true);
+      setPhase("locating");
       setError(null);
 
       if (!navigator.geolocation) {
@@ -103,9 +114,11 @@ export default function ExplorePage() {
           };
 
           setCoords(nextCoords);
+          setPhase("discovering");
 
           try {
             await loadPlaces(nextCoords, prefs);
+            setPhase("ready");
           } catch (loadError) {
             setError(
               loadError instanceof Error
@@ -177,12 +190,14 @@ export default function ExplorePage() {
     if (getJourneyMode(preferences.details) === mode) return;
 
     setModeSaving(true);
+    setPhase("discovering");
     setError(null);
 
     try {
       const updated = await updateJourneyMode(mode);
       setPreferences(updated);
       await loadPlaces(coords, updated);
+      setPhase("ready");
     } catch (modeError) {
       setError(
         modeError instanceof Error
@@ -201,16 +216,16 @@ export default function ExplorePage() {
       ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  if (loading && !coords) {
+  if (phase === "locating") {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
-        <main className="flex flex-col items-center gap-3">
-          <span className="inline-block h-2 w-2 animate-pulse bg-foreground" />
-          <p className="text-sm uppercase tracking-wider text-muted">
-            Finding your location...
-          </p>
-        </main>
-      </div>
+      <LoadingScreen
+        flowLabel="Explore"
+        title="Finding your location"
+        subtitle="We need this to surface nearby recommendations"
+        currentStep={1}
+        totalSteps={EXPLORE_STEPS.length}
+        stepLabels={EXPLORE_STEPS}
+      />
     );
   }
 
@@ -290,17 +305,24 @@ export default function ExplorePage() {
       />
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-4">
+        <StepProgress
+          label="Explore"
+          currentStep={phase === "ready" ? 2 : 2}
+          totalSteps={EXPLORE_STEPS.length}
+          steps={EXPLORE_STEPS}
+        />
         {preferences && (
           <div className="relative mt-4">
             <JourneyModeToggle
               value={getJourneyMode(preferences.details)}
               onChange={handleModeChange}
-              disabled={modeSaving || loading}
+              disabled={modeSaving || phase === "discovering"}
             />
             {modeSaving && (
-              <p className="mt-2 text-sm text-muted">
-                Updating recommendations...
-              </p>
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+                <WanderLoader size="sm" />
+                <span>Updating recommendations...</span>
+              </div>
             )}
           </div>
         )}
@@ -322,8 +344,28 @@ export default function ExplorePage() {
               </button>
             )}
           </div>
-        ) : (
+        ) : phase === "discovering" ? (
           <>
+            <section className="h-[320px] shrink-0 lg:h-auto lg:min-h-[520px] lg:flex-1">
+              <SkeletonMap />
+            </section>
+            <section className="flex flex-1 flex-col gap-4 lg:max-w-md">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <WanderLoader size="sm" />
+                  <h2 className="text-lg font-medium tracking-tight text-foreground">
+                    Discovering places
+                  </h2>
+                </div>
+                <p className="text-sm text-muted">
+                  Matching spots to your vibe within your search radius…
+                </p>
+              </div>
+              <SkeletonPlaceList count={5} />
+            </section>
+          </>
+        ) : (
+          <div className="contents wander-screen-enter">
             <section className="h-[320px] shrink-0 lg:h-auto lg:min-h-[520px] lg:flex-1">
               {coords && radiusMeters && (
                 <PlaceMap
@@ -343,11 +385,6 @@ export default function ExplorePage() {
                   <h2 className="text-lg font-medium tracking-tight text-foreground">
                     Recommendations
                   </h2>
-                  {loading && (
-                    <span className="text-sm uppercase tracking-wider text-muted">
-                      Loading...
-                    </span>
-                  )}
                 </div>
                 {spreadLabel && (
                   <p className="text-sm text-muted">{spreadLabel}</p>
@@ -381,7 +418,7 @@ export default function ExplorePage() {
                   : ""}
               </Link>
             </section>
-          </>
+          </div>
         )}
       </main>
     </div>

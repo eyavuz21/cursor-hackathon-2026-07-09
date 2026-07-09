@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { WanderLoader } from "@/components/loading/WanderLoader";
 import { getLaunchSummary } from "@/lib/onboarding";
 import type {
   HealthGoal,
@@ -43,7 +44,10 @@ export function LaunchStep({
     <div className="flex flex-col items-start gap-8 py-4">
       <div className="flex flex-col gap-3">
         <p className="brand-label">Preparing your guide</p>
-        <h2 className="brand-heading">Crafting your wander...</h2>
+        <div className="flex items-center gap-3">
+          <WanderLoader size="sm" />
+          <h2 className="brand-heading">Crafting your wander...</h2>
+        </div>
         <p className="text-sm text-muted">Mapping nearby spots to your vibe</p>
       </div>
 
