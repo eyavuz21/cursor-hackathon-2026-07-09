@@ -8,6 +8,7 @@ import {
   Polyline,
 } from "@vis.gl/react-google-maps";
 import type { JournalStop, LatLng } from "@/lib/types";
+import { MapPlaceLink } from "@/components/maps/MapPlaceLink";
 
 type PlanMapProps = {
   stops: JournalStop[];
@@ -33,7 +34,6 @@ export function PlanMap({
   }
 
   const center = stops[0] ?? { lat: 0, lng: 0 };
-  let recommendationIndex = 0;
 
   return (
     <APIProvider apiKey={apiKey}>
@@ -52,46 +52,29 @@ export function PlanMap({
           strokeWeight={3}
         />
 
-        {stops.map((stop) => {
-          if (stop.type === "recommendation") {
-            recommendationIndex += 1;
-          }
-
-          const label =
-            stop.type === "recommendation" ? String(recommendationIndex) : null;
-
-          return (
-            <AdvancedMarker
-              key={stop.id}
-              position={{ lat: stop.lat, lng: stop.lng }}
-              onClick={() => onSelectStop(stop.id)}
-            >
-              {stop.type === "start" ? (
-                <Pin
-                  background="#0a0a0a"
-                  borderColor="#262626"
-                  glyphColor="#fafaf9"
-                />
-              ) : stop.type === "destination" ? (
-                <Pin
-                  background="#737373"
-                  borderColor="#525252"
-                  glyphColor="#fafaf9"
-                />
-              ) : (
-                <div
-                  className={`flex h-7 w-7 items-center justify-center border-2 text-xs font-medium shadow-md ${
-                    selectedStopId === stop.id
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-white bg-foreground text-background"
-                  }`}
-                >
-                  {label}
-                </div>
-              )}
-            </AdvancedMarker>
-          );
-        })}
+        {stops.map((stop) => (
+          <AdvancedMarker
+            key={stop.id}
+            position={{ lat: stop.lat, lng: stop.lng }}
+          >
+            {stop.type === "start" ? (
+              <Pin
+                background="#0a0a0a"
+                borderColor="#262626"
+                glyphColor="#fafaf9"
+              />
+            ) : (
+              <MapPlaceLink
+                name={stop.name}
+                lat={stop.lat}
+                lng={stop.lng}
+                googleMapsUri={stop.googleMapsUri}
+                selected={selectedStopId === stop.id}
+                onSelect={() => onSelectStop(stop.id)}
+              />
+            )}
+          </AdvancedMarker>
+        ))}
       </Map>
     </APIProvider>
   );

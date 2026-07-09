@@ -1,4 +1,5 @@
 import type { PlaceResult } from "@/lib/types";
+import { getGoogleMapsUrl } from "@/lib/google-maps-url";
 
 type PlaceListProps = {
   places: PlaceResult[];
@@ -29,9 +30,12 @@ export function PlaceList({
       {places.map((place, index) => {
         const selected = selectedPlaceId === place.id;
         const onJourney = journeyPlaceIds?.has(place.id) ?? false;
-        const mapsUrl =
-          place.googleMapsUri ??
-          `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+        const mapsUrl = getGoogleMapsUrl({
+          googleMapsUri: place.googleMapsUri,
+          lat: place.lat,
+          lng: place.lng,
+          name: place.name,
+        });
 
         return (
           <li key={place.id} id={`place-${place.id}`}>
@@ -62,7 +66,15 @@ export function PlaceList({
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="font-medium text-foreground">
-                      {place.name}
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="brand-link"
+                      >
+                        {place.name}
+                      </a>
                     </span>
                     {place.address && (
                       <span className="text-sm text-muted">
@@ -96,7 +108,7 @@ export function PlaceList({
                   rel="noopener noreferrer"
                   className="brand-link shrink-0 self-end text-sm"
                 >
-                  Maps →
+                  Open in Google Maps →
                 </a>
               </div>
             </div>

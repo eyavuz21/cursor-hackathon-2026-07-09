@@ -1,4 +1,5 @@
 import { formatDistance } from "@/lib/route";
+import { getGoogleMapsUrl } from "@/lib/google-maps-url";
 import type { JournalStop } from "@/lib/types";
 
 type JournalTimelineProps = {
@@ -30,9 +31,12 @@ export function JournalTimeline({
       {stops.map((stop, index) => {
         const isLast = index === stops.length - 1;
         const selected = selectedStopId === stop.id;
-        const mapsUrl =
-          stop.googleMapsUri ??
-          `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`;
+        const mapsUrl = getGoogleMapsUrl({
+          googleMapsUri: stop.googleMapsUri,
+          lat: stop.lat,
+          lng: stop.lng,
+          name: stop.name,
+        });
 
         if (stop.type === "recommendation") {
           recommendationIndex += 1;
@@ -80,14 +84,26 @@ export function JournalTimeline({
                   )}
                 </div>
                 <h3 className="font-medium text-foreground">
-                  {stop.name}
+                  {stop.type === "start" ? (
+                    stop.name
+                  ) : (
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      className="brand-link"
+                    >
+                      {stop.name}
+                    </a>
+                  )}
                 </h3>
                 {stop.address && stop.type !== "start" && (
                   <p className="text-sm text-muted">
                     {stop.address}
                   </p>
                 )}
-                {stop.type === "recommendation" && (
+                {stop.type !== "start" && (
                   <div className="flex flex-wrap items-center gap-3">
                     {stop.rating !== undefined && (
                       <span className="text-sm text-muted">

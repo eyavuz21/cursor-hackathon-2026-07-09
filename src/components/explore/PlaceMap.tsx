@@ -8,6 +8,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import type { PlaceResult } from "@/lib/types";
 import { SearchRadiusCircle } from "@/components/explore/SearchRadiusCircle";
+import { MapPlaceLink } from "@/components/maps/MapPlaceLink";
 
 type PlaceMapProps = {
   userLat: number;
@@ -60,21 +61,19 @@ export function PlaceMap({
           />
         </AdvancedMarker>
 
-        {places.map((place, index) => (
+        {places.map((place) => (
           <AdvancedMarker
             key={place.id}
             position={{ lat: place.lat, lng: place.lng }}
-            onClick={() => onSelectPlace(place.id)}
           >
-            <div
-              className={`flex h-7 w-7 items-center justify-center border-2 text-xs font-medium shadow-md ${
-                selectedPlaceId === place.id
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-white bg-foreground text-background"
-              }`}
-            >
-              {index + 1}
-            </div>
+            <MapPlaceLink
+              name={place.name}
+              lat={place.lat}
+              lng={place.lng}
+              googleMapsUri={place.googleMapsUri}
+              selected={selectedPlaceId === place.id}
+              onSelect={() => onSelectPlace(place.id)}
+            />
           </AdvancedMarker>
         ))}
       </Map>
