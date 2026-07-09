@@ -66,7 +66,7 @@ export default function OnboardingPage() {
   }
 
   const handleLaunchComplete = useCallback(async () => {
-    if (!healthGoal || saving) return;
+    if (!healthGoal || interests.length === 0 || saving) return;
 
     setSaving(true);
     setError(null);

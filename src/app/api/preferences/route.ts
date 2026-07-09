@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureServerSession } from "@/lib/supabase/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { isInterest, normalizeInterests } from "@/lib/interests";
+import { normalizeInterests } from "@/lib/interests";
 import type {
   HealthGoal,
   OnboardingDetails,
@@ -27,18 +27,50 @@ function isValidDetails(details: unknown): details is OnboardingDetails {
   return true;
 }
 
-function isValidPreferences(body: unknown): body is UserPreferences {
-  if (!body || typeof body !== "object") return false;
+function parsePreferencesBody(body: unknown): UserPreferences | null {
+  if (!body || typeof body !== "object") return null;
 
   const { healthGoal, interests, details } = body as UserPreferences;
 
-  return (
-    HEALTH_GOALS.includes(healthGoal) &&
-    Array.isArray(interests) &&
-    interests.length > 0 &&
-    interests.every((interest) => isInterest(interest)) &&
-    isValidDetails(details)
-  );
+  if (!HEALTH_GOALS.includes(healthGoal)) return null;
+  if (!Array.isArray(interests)) return null;
+
+  const normalizedInterests = normalizeInterests(interests as string[]);
+  if (normalizedInterests.length === 0) return null;
+  if (!isValidDetails(details)) return null;
+
+  return {
+    healthGoal,
+    interests: normalizedInterests,
+    details: parseDetails(details),
+  };
+}
+
+function getValidationError(body: unknown): string | null {
+  if (!body || typeof body !== "object") {
+    return "Invalid preferences. Provide healthGoal and interests.";
+  }
+
+  const { healthGoal, interests, details } = body as UserPreferences;
+
+  if (!HEALTH_GOALS.includes(healthGoal)) {
+    return "Invalid health goal. Choose gentle, moderate, or active.";
+  }
+
+  if (!Array.isArray(interests) || interests.length === 0) {
+    return "Pick at least one history or food interest.";
+  }
+
+  const normalizedInterests = normalizeInterests(interests as string[]);
+  if (normalizedInterests.length === 0) {
+    return "Selected interests are not recognized. Please re-select your preferences.";
+  }
+
+  if (!isValidDetails(details)) {
+    return "Invalid outing style selected.";
+  }
+
+  return null;
 }
 
 function parseDetails(raw: unknown): OnboardingDetails | undefined {
@@ -102,8 +134,14 @@ export async function POST(request: Request) {
   }
 
   const body: unknown = await request.json();
+  const validationError = getValidationError(body);
 
-  if (!isValidPreferences(body)) {
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
+  const preferences = parsePreferencesBody(body);
+  if (!preferences) {
     return NextResponse.json(
       { error: "Invalid preferences. Provide healthGoal and interests." },
       { status: 400 },
@@ -116,9 +154,9 @@ export async function POST(request: Request) {
     const { error } = await supabase.from("user_preferences").upsert(
       {
         user_id: user.id,
-        health_goal: body.healthGoal,
-        interests: body.interests,
-        profile_details: body.details ?? {},
+        health_goal: preferences.healthGoal,
+        interests: preferences.interests,
+        profile_details: preferences.details ?? {},
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },

@@ -29,11 +29,19 @@ export async function getPreferences(): Promise<UserPreferences | null> {
 export async function savePreferences(
   preferences: UserPreferences,
 ): Promise<void> {
+  const payload = {
+    healthGoal: preferences.healthGoal,
+    interests: preferences.interests,
+    details: preferences.details?.outingStyle
+      ? { outingStyle: preferences.details.outingStyle }
+      : undefined,
+  };
+
   const response = await fetch("/api/preferences", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(preferences),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
