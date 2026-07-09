@@ -7,10 +7,12 @@ import {
   Pin,
 } from "@vis.gl/react-google-maps";
 import type { PlaceResult } from "@/lib/types";
+import { SearchRadiusCircle } from "@/components/explore/SearchRadiusCircle";
 
 type PlaceMapProps = {
   userLat: number;
   userLng: number;
+  searchRadiusMeters: number;
   places: PlaceResult[];
   selectedPlaceId: string | null;
   onSelectPlace: (placeId: string) => void;
@@ -19,6 +21,7 @@ type PlaceMapProps = {
 export function PlaceMap({
   userLat,
   userLng,
+  searchRadiusMeters,
   places,
   selectedPlaceId,
   onSelectPlace,
@@ -43,6 +46,12 @@ export function PlaceMap({
         mapId="wander-explore-map"
         className="h-full min-h-[280px] w-full border border-border"
       >
+        <SearchRadiusCircle
+          lat={userLat}
+          lng={userLng}
+          radiusMeters={searchRadiusMeters}
+        />
+
         <AdvancedMarker position={{ lat: userLat, lng: userLng }}>
           <Pin
             background="#0a0a0a"

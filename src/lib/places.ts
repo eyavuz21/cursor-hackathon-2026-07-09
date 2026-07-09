@@ -44,6 +44,12 @@ export const INTEREST_SEARCH: Record<
   quick_bites: { includedType: "meal_takeaway", textQuery: "takeaway food" },
 };
 
+const MAX_RESULTS: Record<HealthGoal, number> = {
+  gentle: 8,
+  moderate: 12,
+  active: 15,
+};
+
 const OUTING_RADIUS_MULTIPLIER: Record<
   NonNullable<OnboardingDetails["outingStyle"]>,
   number
@@ -64,6 +70,10 @@ type GooglePlace = {
   types?: string[];
   userRatingCount?: number;
 };
+
+export function getMaxResultCount(healthGoal: HealthGoal): number {
+  return MAX_RESULTS[healthGoal];
+}
 
 export function getSearchRadiusMeters(
   healthGoal: HealthGoal,

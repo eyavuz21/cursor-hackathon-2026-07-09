@@ -99,6 +99,29 @@ export async function GET() {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    if (error?.message?.includes("profile_details")) {
+      const fallback = await supabase
+        .from("user_preferences")
+        .select("health_goal, interests")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (fallback.error) {
+        return NextResponse.json({ error: fallback.error.message }, { status: 500 });
+      }
+
+      if (!fallback.data) {
+        return NextResponse.json({ preferences: null });
+      }
+
+      return NextResponse.json({
+        preferences: {
+          healthGoal: fallback.data.health_goal,
+          interests: normalizeInterests(fallback.data.interests as string[]),
+        } satisfies UserPreferences,
+      });
+    }
+
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -161,6 +184,26 @@ export async function POST(request: Request) {
       },
       { onConflict: "user_id" },
     );
+
+    if (error?.message?.includes("profile_details")) {
+      const { error: fallbackError } = await supabase
+        .from("user_preferences")
+        .upsert(
+          {
+            user_id: user.id,
+            health_goal: preferences.healthGoal,
+            interests: preferences.interests,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
+
+      if (fallbackError) {
+        return NextResponse.json({ error: fallbackError.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true });
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

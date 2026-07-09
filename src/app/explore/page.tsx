@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   clearPreferences,
   getPreferences,
+  getRadiusLabel,
   HEALTH_GOAL_OPTIONS,
 } from "@/lib/preferences";
 import { getInterestLabels } from "@/lib/interests";
@@ -29,6 +30,9 @@ export default function ExplorePage() {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchRadiusMeters, setSearchRadiusMeters] = useState<number | null>(
+    null,
+  );
 
   const loadPlaces = useCallback(
     async (position: Coordinates, prefs: UserPreferences) => {
@@ -46,6 +50,7 @@ export default function ExplorePage() {
 
       const data = (await response.json()) as {
         places?: PlaceResult[];
+        searchRadiusMeters?: number;
         error?: string;
       };
 
@@ -54,6 +59,7 @@ export default function ExplorePage() {
       }
 
       setPlaces(data.places ?? []);
+      setSearchRadiusMeters(data.searchRadiusMeters ?? null);
       setSelectedPlaceId(data.places?.[0]?.id ?? null);
     },
     [],
@@ -152,6 +158,9 @@ export default function ExplorePage() {
   const healthLabel =
     HEALTH_GOAL_OPTIONS.find((option) => option.value === preferences?.healthGoal)
       ?.label ?? "";
+  const chosenRadiusLabel = preferences
+    ? getRadiusLabel(preferences.healthGoal)
+    : "";
   const interestLabels =
     preferences?.interests.length
       ? getInterestLabels(preferences.interests).join(", ")
@@ -161,9 +170,11 @@ export default function ExplorePage() {
         (option) => option.value === preferences.details?.outingStyle,
       )?.label
     : null;
-  const radiusMeters = preferences
-    ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
-    : null;
+  const radiusMeters =
+    searchRadiusMeters ??
+    (preferences
+      ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
+      : null);
 
   return (
     <div className="flex flex-1 flex-col bg-background font-sans">
@@ -172,9 +183,7 @@ export default function ExplorePage() {
           preferences
             ? [
                 healthLabel,
-                radiusMeters
-                  ? `${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} radius`
-                  : null,
+                chosenRadiusLabel || null,
                 interestLabels || null,
                 outingLabel,
                 "4.5+ stars",
@@ -232,10 +241,11 @@ export default function ExplorePage() {
         ) : (
           <>
             <section className="h-[320px] shrink-0 lg:h-auto lg:min-h-[520px] lg:flex-1">
-              {coords && (
+              {coords && radiusMeters && (
                 <PlaceMap
                   userLat={coords.lat}
                   userLng={coords.lng}
+                  searchRadiusMeters={radiusMeters}
                   places={places}
                   selectedPlaceId={selectedPlaceId}
                   onSelectPlace={handleSelectPlace}

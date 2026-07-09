@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
-import { searchRecommendations } from "@/lib/places";
+import { getSearchRadiusMeters, searchRecommendations } from "@/lib/places";
 import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
 
 type PlacesRequest = {
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
 
   const { lat, lng, healthGoal, interests, details } = body;
   const normalizedInterests = normalizeInterests(interests as string[]);
+  const searchRadiusMeters = getSearchRadiusMeters(healthGoal, details);
 
   try {
     const places = await searchRecommendations({
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
       details,
     });
 
-    return NextResponse.json({ places });
+    return NextResponse.json({ places, searchRadiusMeters });
   } catch (error) {
     return NextResponse.json(
       {

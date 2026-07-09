@@ -10,6 +10,13 @@ export function getRadiusMeters(healthGoal: HealthGoal): number {
   return RADIUS_METERS[healthGoal];
 }
 
+export function getRadiusLabel(healthGoal: HealthGoal): string {
+  return (
+    HEALTH_GOAL_OPTIONS.find((option) => option.value === healthGoal)
+      ?.radiusLabel ?? ""
+  );
+}
+
 async function parseResponse(response: Response): Promise<never> {
   const data = (await response.json().catch(() => ({}))) as { error?: string };
   throw new Error(data.error ?? "Request failed");
