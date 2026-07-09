@@ -39,3 +39,41 @@ export type PlaceResult = {
   rating?: number;
   googleMapsUri?: string;
 };
+
+export type LatLng = {
+  lat: number;
+  lng: number;
+};
+
+export type GeocodedDestination = {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+};
+
+export type JournalStopType = "start" | "recommendation" | "destination";
+
+export type JournalStop = {
+  id: string;
+  type: JournalStopType;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  placeId?: string;
+  rating?: number;
+  googleMapsUri?: string;
+  distanceFromPreviousMeters?: number;
+};
+
+export type TripPlan = {
+  id: string;
+  createdAt: string;
+  destinationQuery: string;
+  destination: GeocodedDestination;
+  start: LatLng & { name?: string };
+  stops: JournalStop[];
+  routePath: LatLng[];
+  totalDistanceMeters: number;
+};
