@@ -1,7 +1,5 @@
 import type {
-  FoodStyle,
   HealthGoal,
-  HistoryStyle,
   Interest,
   OnboardingDetails,
   PlaceResult,
@@ -9,20 +7,18 @@ import type {
 import { getRadiusMeters } from "./preferences";
 
 const INTEREST_TYPES: Record<Interest, string[]> = {
-  history: ["museum", "tourist_attraction", "church"],
-  food: ["restaurant", "cafe", "bakery"],
-};
-
-const HISTORY_STYLE_TYPES: Record<HistoryStyle, string[]> = {
   museums: ["museum"],
   landmarks: ["tourist_attraction"],
-  local: ["church", "tourist_attraction"],
-};
-
-const FOOD_STYLE_TYPES: Record<FoodStyle, string[]> = {
-  coffee: ["cafe", "bakery"],
-  quick: ["cafe", "restaurant"],
-  dining: ["restaurant"],
+  churches: ["church"],
+  art_galleries: ["art_gallery"],
+  historic_sites: ["monument", "tourist_attraction"],
+  libraries: ["library"],
+  restaurants: ["restaurant"],
+  cafes: ["cafe"],
+  bakeries: ["bakery"],
+  bars: ["bar"],
+  dessert: ["ice_cream_shop"],
+  quick_bites: ["meal_takeaway"],
 };
 
 const OUTING_RADIUS_MULTIPLIER: Record<
@@ -46,27 +42,10 @@ export function getSearchRadiusMeters(
   return Math.round(base * multiplier);
 }
 
-export function getIncludedTypes(
-  interests: Interest[],
-  details?: OnboardingDetails,
-): string[] {
+export function getIncludedTypes(interests: Interest[]): string[] {
   const types = new Set<string>();
 
   for (const interest of interests) {
-    if (interest === "history" && details?.historyStyle) {
-      for (const type of HISTORY_STYLE_TYPES[details.historyStyle]) {
-        types.add(type);
-      }
-      continue;
-    }
-
-    if (interest === "food" && details?.foodStyle) {
-      for (const type of FOOD_STYLE_TYPES[details.foodStyle]) {
-        types.add(type);
-      }
-      continue;
-    }
-
     for (const type of INTEREST_TYPES[interest]) {
       types.add(type);
     }

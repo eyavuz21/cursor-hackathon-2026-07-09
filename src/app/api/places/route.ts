@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isInterest, normalizeInterests } from "@/lib/interests";
 import {
   dedupePlaces,
   getIncludedTypes,
@@ -16,20 +17,24 @@ type PlacesRequest = {
 };
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
-const INTERESTS: Interest[] = ["history", "food"];
 
 function isValidRequest(body: unknown): body is PlacesRequest {
   if (!body || typeof body !== "object") return false;
 
   const { lat, lng, healthGoal, interests } = body as PlacesRequest;
+  const normalizedInterests = Array.isArray(interests)
+    ? normalizeInterests(interests as string[])
+    : [];
 
   return (
     typeof lat === "number" &&
     typeof lng === "number" &&
     HEALTH_GOALS.includes(healthGoal) &&
-    Array.isArray(interests) &&
-    interests.length > 0 &&
-    interests.every((interest) => INTERESTS.includes(interest))
+    normalizedInterests.length > 0 &&
+    (interests as string[]).every(
+      (interest) =>
+        isInterest(interest) || interest === "history" || interest === "food",
+    )
   );
 }
 
@@ -52,8 +57,9 @@ export async function POST(request: Request) {
   }
 
   const { lat, lng, healthGoal, interests, details } = body;
+  const normalizedInterests = normalizeInterests(interests as string[]);
   const radius = getSearchRadiusMeters(healthGoal, details);
-  const includedTypes = getIncludedTypes(interests, details);
+  const includedTypes = getIncludedTypes(normalizedInterests);
 
   const response = await fetch(
     "https://places.googleapis.com/v1/places:searchNearby",

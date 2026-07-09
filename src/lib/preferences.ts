@@ -77,20 +77,3 @@ export const HEALTH_GOAL_OPTIONS: {
     radiusLabel: "5 km radius",
   },
 ];
-
-export const INTEREST_OPTIONS: {
-  value: Interest;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "history",
-    label: "History",
-    description: "Museums, landmarks, and cultural sites.",
-  },
-  {
-    value: "food",
-    label: "Food",
-    description: "Restaurants, cafés, and bakeries.",
-  },
-];

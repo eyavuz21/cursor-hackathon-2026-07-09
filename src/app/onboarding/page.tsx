@@ -3,9 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
-  FoodStyle,
   HealthGoal,
-  HistoryStyle,
   Interest,
   OnboardingDetails,
   OutingStyle,
@@ -13,6 +11,7 @@ import type {
 import {
   getOnboardingSteps,
   isStepComplete,
+  OUTING_STYLE_OPTIONS,
   type OnboardingStepId,
 } from "@/lib/onboarding";
 import { savePreferences } from "@/lib/preferences";
@@ -21,8 +20,6 @@ import { HealthStep } from "@/components/onboarding/HealthStep";
 import { InterestsStep } from "@/components/onboarding/InterestsStep";
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { HealthFollowUpStep } from "@/components/onboarding/HealthFollowUpStep";
-import { HistoryFollowUpStep } from "@/components/onboarding/HistoryFollowUpStep";
-import { FoodFollowUpStep } from "@/components/onboarding/FoodFollowUpStep";
 import { LaunchStep } from "@/components/onboarding/LaunchStep";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { StepTransition } from "@/components/onboarding/StepTransition";
@@ -38,7 +35,7 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const steps = useMemo(() => getOnboardingSteps(interests), [interests]);
+  const steps = useMemo(() => getOnboardingSteps(), []);
   const effectiveStepIndex = Math.min(stepIndex, Math.max(0, steps.length - 1));
   const currentStep = steps[effectiveStepIndex] ?? steps[0];
   const isLaunch = currentStep === "launch";
@@ -65,16 +62,7 @@ export default function OnboardingPage() {
   }
 
   function handleInterestsChange(nextInterests: Interest[]) {
-    const nextSteps = getOnboardingSteps(nextInterests);
     setInterests(nextInterests);
-    setStepIndex((current) => Math.min(current, Math.max(0, nextSteps.length - 1)));
-    setDetails((current) => ({
-      ...current,
-      historyStyle: nextInterests.includes("history")
-        ? current.historyStyle
-        : undefined,
-      foodStyle: nextInterests.includes("food") ? current.foodStyle : undefined,
-    }));
   }
 
   const handleLaunchComplete = useCallback(async () => {
@@ -136,24 +124,6 @@ export default function OnboardingPage() {
       case "interests":
         return (
           <InterestsStep value={interests} onChange={handleInterestsChange} />
-        );
-      case "history-followup":
-        return (
-          <HistoryFollowUpStep
-            value={details.historyStyle}
-            onChange={(historyStyle: HistoryStyle) =>
-              setDetails((current) => ({ ...current, historyStyle }))
-            }
-          />
-        );
-      case "food-followup":
-        return (
-          <FoodFollowUpStep
-            value={details.foodStyle}
-            onChange={(foodStyle: FoodStyle) =>
-              setDetails((current) => ({ ...current, foodStyle }))
-            }
-          />
         );
       case "launch":
         return healthGoal ? (

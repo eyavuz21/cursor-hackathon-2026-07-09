@@ -6,14 +6,10 @@ import {
   clearPreferences,
   getPreferences,
   HEALTH_GOAL_OPTIONS,
-  INTEREST_OPTIONS,
 } from "@/lib/preferences";
+import { getInterestLabels } from "@/lib/interests";
 import { getSearchRadiusMeters } from "@/lib/places";
-import {
-  FOOD_STYLE_OPTIONS,
-  HISTORY_STYLE_OPTIONS,
-  OUTING_STYLE_OPTIONS,
-} from "@/lib/onboarding";
+import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
 import type { PlaceResult, UserPreferences } from "@/lib/types";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
@@ -155,31 +151,14 @@ export default function ExplorePage() {
     HEALTH_GOAL_OPTIONS.find((option) => option.value === preferences?.healthGoal)
       ?.label ?? "";
   const interestLabels =
-    preferences?.interests
-      .map(
-        (interest) =>
-          INTEREST_OPTIONS.find((option) => option.value === interest)?.label,
-      )
-      .filter(Boolean)
-      .join(", ") ?? "";
-  const detailLabels = [
-    preferences?.details?.outingStyle
-      ? OUTING_STYLE_OPTIONS.find(
-          (option) => option.value === preferences.details?.outingStyle,
-        )?.label
-      : null,
-    preferences?.details?.historyStyle
-      ? HISTORY_STYLE_OPTIONS.find(
-          (option) => option.value === preferences.details?.historyStyle,
-        )?.label
-      : null,
-    preferences?.details?.foodStyle
-      ? FOOD_STYLE_OPTIONS.find(
-          (option) => option.value === preferences.details?.foodStyle,
-        )?.label
-      : null,
-  ].filter(Boolean);
-
+    preferences?.interests.length
+      ? getInterestLabels(preferences.interests).join(", ")
+      : "";
+  const outingLabel = preferences?.details?.outingStyle
+    ? OUTING_STYLE_OPTIONS.find(
+        (option) => option.value === preferences.details?.outingStyle,
+      )?.label
+    : null;
   const radiusMeters = preferences
     ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
     : null;
@@ -202,7 +181,7 @@ export default function ExplorePage() {
                   ? ` · ${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} radius`
                   : ""}
                 {interestLabels ? ` · ${interestLabels}` : ""}
-                {detailLabels.length > 0 ? ` · ${detailLabels.join(" · ")}` : ""}
+                {outingLabel ? ` · ${outingLabel}` : ""}
               </p>
             )}
           </div>

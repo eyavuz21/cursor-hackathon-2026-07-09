@@ -1,21 +1,16 @@
 import { NextResponse } from "next/server";
 import { ensureServerSession } from "@/lib/supabase/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isInterest, normalizeInterests } from "@/lib/interests";
 import type {
-  FoodStyle,
   HealthGoal,
-  HistoryStyle,
-  Interest,
   OnboardingDetails,
   OutingStyle,
   UserPreferences,
 } from "@/lib/types";
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
-const INTERESTS: Interest[] = ["history", "food"];
 const OUTING_STYLES: OutingStyle[] = ["scenic", "direct", "explorer"];
-const HISTORY_STYLES: HistoryStyle[] = ["museums", "landmarks", "local"];
-const FOOD_STYLES: FoodStyle[] = ["coffee", "quick", "dining"];
 
 function isValidDetails(details: unknown): details is OnboardingDetails {
   if (!details || typeof details !== "object") return true;
@@ -26,17 +21,6 @@ function isValidDetails(details: unknown): details is OnboardingDetails {
     value.outingStyle !== undefined &&
     !OUTING_STYLES.includes(value.outingStyle)
   ) {
-    return false;
-  }
-
-  if (
-    value.historyStyle !== undefined &&
-    !HISTORY_STYLES.includes(value.historyStyle)
-  ) {
-    return false;
-  }
-
-  if (value.foodStyle !== undefined && !FOOD_STYLES.includes(value.foodStyle)) {
     return false;
   }
 
@@ -52,7 +36,7 @@ function isValidPreferences(body: unknown): body is UserPreferences {
     HEALTH_GOALS.includes(healthGoal) &&
     Array.isArray(interests) &&
     interests.length > 0 &&
-    interests.every((interest) => INTERESTS.includes(interest)) &&
+    interests.every((interest) => isInterest(interest)) &&
     isValidDetails(details)
   );
 }
@@ -63,10 +47,7 @@ function parseDetails(raw: unknown): OnboardingDetails | undefined {
   const details = raw as OnboardingDetails;
   if (!isValidDetails(details)) return undefined;
 
-  const hasValues =
-    details.outingStyle || details.historyStyle || details.foodStyle;
-
-  return hasValues ? details : undefined;
+  return details.outingStyle ? details : undefined;
 }
 
 export async function GET() {
@@ -97,7 +78,7 @@ export async function GET() {
     return NextResponse.json({
       preferences: {
         healthGoal: data.health_goal,
-        interests: data.interests,
+        interests: normalizeInterests(data.interests as string[]),
         details: parseDetails(data.profile_details),
       } satisfies UserPreferences,
     });

@@ -1,14 +1,27 @@
 export type HealthGoal = "gentle" | "moderate" | "active";
-export type Interest = "history" | "food";
+
+export type HistoryInterest =
+  | "museums"
+  | "landmarks"
+  | "churches"
+  | "art_galleries"
+  | "historic_sites"
+  | "libraries";
+
+export type FoodInterest =
+  | "restaurants"
+  | "cafes"
+  | "bakeries"
+  | "bars"
+  | "dessert"
+  | "quick_bites";
+
+export type Interest = HistoryInterest | FoodInterest;
 
 export type OutingStyle = "scenic" | "direct" | "explorer";
-export type HistoryStyle = "museums" | "landmarks" | "local";
-export type FoodStyle = "coffee" | "quick" | "dining";
 
 export type OnboardingDetails = {
   outingStyle?: OutingStyle;
-  historyStyle?: HistoryStyle;
-  foodStyle?: FoodStyle;
 };
 
 export type UserPreferences = {

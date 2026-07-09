@@ -1,39 +1,15 @@
-import type {
-  FoodStyle,
-  HealthGoal,
-  HistoryStyle,
-  Interest,
-  OnboardingDetails,
-  OutingStyle,
-} from "./types";
+import type { HealthGoal, Interest, OnboardingDetails } from "./types";
+import { getInterestLabels } from "./interests";
 
 export type OnboardingStepId =
   | "welcome"
   | "health"
   | "health-followup"
   | "interests"
-  | "history-followup"
-  | "food-followup"
   | "launch";
 
-export function getOnboardingSteps(interests: Interest[]): OnboardingStepId[] {
-  const steps: OnboardingStepId[] = [
-    "welcome",
-    "health",
-    "health-followup",
-    "interests",
-  ];
-
-  if (interests.includes("history")) {
-    steps.push("history-followup");
-  }
-
-  if (interests.includes("food")) {
-    steps.push("food-followup");
-  }
-
-  steps.push("launch");
-  return steps;
+export function getOnboardingSteps(): OnboardingStepId[] {
+  return ["welcome", "health", "health-followup", "interests", "launch"];
 }
 
 export function getHealthFollowUpPrompt(healthGoal: HealthGoal): {
@@ -60,7 +36,7 @@ export function getHealthFollowUpPrompt(healthGoal: HealthGoal): {
 }
 
 export const OUTING_STYLE_OPTIONS: {
-  value: OutingStyle;
+  value: import("./types").OutingStyle;
   label: string;
   description: string;
   forGoals: HealthGoal[];
@@ -91,50 +67,6 @@ export function getOutingOptionsForGoal(healthGoal: HealthGoal) {
   );
 }
 
-export const HISTORY_STYLE_OPTIONS: {
-  value: HistoryStyle;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "museums",
-    label: "Museums & galleries",
-    description: "Curated collections and indoor cultural stops.",
-  },
-  {
-    value: "landmarks",
-    label: "Iconic landmarks",
-    description: "Famous sights, monuments, and must-see architecture.",
-  },
-  {
-    value: "local",
-    label: "Local stories",
-    description: "Churches, heritage sites, and neighborhood history.",
-  },
-];
-
-export const FOOD_STYLE_OPTIONS: {
-  value: FoodStyle;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "coffee",
-    label: "Coffee & pastry",
-    description: "Cafés, bakeries, and a cozy pause.",
-  },
-  {
-    value: "quick",
-    label: "Quick bite",
-    description: "Casual spots when you're on the move.",
-  },
-  {
-    value: "dining",
-    label: "Sit-down meal",
-    description: "Restaurants worth lingering at.",
-  },
-];
-
 export function isStepComplete(
   step: OnboardingStepId,
   state: {
@@ -152,10 +84,6 @@ export function isStepComplete(
       return Boolean(state.details.outingStyle);
     case "interests":
       return state.interests.length > 0;
-    case "history-followup":
-      return Boolean(state.details.historyStyle);
-    case "food-followup":
-      return Boolean(state.details.foodStyle);
     case "launch":
       return true;
   }
@@ -185,18 +113,11 @@ export function getLaunchSummary(state: {
     if (style) lines.push(style.label);
   }
 
-  if (state.interests.includes("history") && state.details.historyStyle) {
-    const style = HISTORY_STYLE_OPTIONS.find(
-      (option) => option.value === state.details.historyStyle,
-    );
-    if (style) lines.push(style.label);
-  }
-
-  if (state.interests.includes("food") && state.details.foodStyle) {
-    const style = FOOD_STYLE_OPTIONS.find(
-      (option) => option.value === state.details.foodStyle,
-    );
-    if (style) lines.push(style.label);
+  if (state.interests.length > 0) {
+    lines.push(...getInterestLabels(state.interests).slice(0, 4));
+    if (state.interests.length > 4) {
+      lines.push(`+${state.interests.length - 4} more`);
+    }
   }
 
   return lines;
