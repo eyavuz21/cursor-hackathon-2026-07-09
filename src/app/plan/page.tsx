@@ -17,5 +17,5 @@ export default async function PlanPage({ searchParams }: PlanPageProps) {
   }
 
   const suffix = query.toString();
-  redirect(suffix ? `/explore?${suffix}` : "/explore");
+  redirect(suffix ? `/journey?${suffix}` : "/journey");
 }

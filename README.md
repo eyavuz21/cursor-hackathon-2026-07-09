@@ -28,7 +28,7 @@ Chronic overstimulation and anxiety are defining features of modern urban life. 
 
 MentalClear intentionally biases routes toward calmer paths: quieter streets, greener coverage, libraries, historic sites, and low-stress walking distances. It is passive eco-therapy built into a daily chore.
 
-**In the app:** choose **Mindfulness** during onboarding, set your walking pace, and Explore surfaces calmer nearby picks within a comfortable radius.
+**In the app:** choose **Mindfulness** during onboarding, set your walking pace, and the journey planner surfaces calmer nearby picks within a comfortable radius.
 
 ### 2. SocialExplore (Social)
 
@@ -46,24 +46,24 @@ SocialExplore routes you past thriving local spots — cafés, markets, bookshop
 
 Most people cannot find gym time, but they still travel. HealthOptimised turns a static A-to-B walk into a dynamic health route — extra steps and stops woven in while respecting a time budget (~45 min or ~1 hour).
 
-**In the app:** choose **Health-optimised**, set your time budget, and the journal planner builds a walking route with added movement without a manual toggle.
+**In the app:** choose **Health-optimised**, set your time budget, and the journey planner builds a walking route with added movement without a manual toggle.
 
 ---
 
-## Spatial shopping planner
+## Optional errands add-on
 
-Errands are another form of urban mobility that default maps treat as pure efficiency. Wander merges **where you shop** with **how you get there** — so groceries fit into your walk instead of becoming a separate trip.
+Errands are another form of urban mobility that default maps treat as pure efficiency. Wander folds shopping into your journey as an **optional add-on** — so groceries fit into your walk instead of becoming a separate trip.
 
 | Mode | What it optimises for |
 |------|------------------------|
 | **Scavenger** | Cheapest stop per item along your route — hunt deals across multiple supermarkets without a big detour |
 | **Efficiency** | One supermarket for your whole list — lowest total basket price when live data is available |
 
-**How it works:**
+**How it works (inside `/journey`):**
 
-1. Type or paste your shopping list on [`/shop`](https://cursor-hackathon-2026-07-09.vercel.app/shop)
-2. Optionally set a destination (or plan from your current location)
-3. Wander finds real nearby supermarkets via **OpenStreetMap**
+1. Pick places on the map and optionally expand **Add errands**
+2. Type or paste your shopping list
+3. Wander finds real nearby supermarkets via **OpenStreetMap**, aligned to your journey destination
 4. With `LINKUP_API_KEY` configured, **LinkUp** fetches live UK grocery prices from the web
 5. The planner orders stops by cost:
    - **Scavenger** → cheapest shop per item along your corridor
@@ -78,9 +78,9 @@ Without `LINKUP_API_KEY`, the planner still works but falls back to route-based 
 | Page | Purpose |
 |------|---------|
 | [`/onboarding`](https://cursor-hackathon-2026-07-09.vercel.app/onboarding) | Mode-first setup: pick MentalClear, SocialExplore, or HealthOptimised → one follow-up question → launch |
-| [`/explore`](https://cursor-hackathon-2026-07-09.vercel.app/explore) | Map + recommendations from your location; toggle journey mode live |
-| [`/plan`](https://cursor-hackathon-2026-07-09.vercel.app/plan) | Build a walking journal route through Explore picks to a destination |
-| [`/shop`](https://cursor-hackathon-2026-07-09.vercel.app/shop) | Spatial shopping planner with live prices (Scavenger or Efficiency) |
+| [`/journey`](https://cursor-hackathon-2026-07-09.vercel.app/journey) | **One unified flow:** discover places on the map → optionally add errands → build your walking route → review and save |
+
+Legacy URLs (`/explore`, `/plan`, `/shop`) redirect into `/journey` for backward compatibility.
 
 ---
 
@@ -100,7 +100,7 @@ Without `LINKUP_API_KEY`, the planner still works but falls back to route-based 
 - **Supabase** — anonymous auth + `user_preferences`
 - **Google Places API (New)** — recommendations, geocoding, walking directions
 - **OpenStreetMap / Overpass** — supermarket discovery for the shopping planner
-- **LinkUp** — live web-sourced grocery prices on `/shop`
+- **LinkUp** — live web-sourced grocery prices for the optional errands add-on
 
 ---
 
@@ -124,7 +124,7 @@ Add to `.env.local` and [Vercel project settings](https://vercel.com/boyle/curso
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `GOOGLE_MAPS_API_KEY` | Server-side Places + Directions |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Client-side Maps JS |
-| `LINKUP_API_KEY` | Live grocery prices on `/shop` (optional — get one at [app.linkup.so](https://app.linkup.so)) |
+| `LINKUP_API_KEY` | Live grocery prices for errands (optional — get one at [app.linkup.so](https://app.linkup.so)) |
 
 ### Supabase setup
 

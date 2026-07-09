@@ -67,7 +67,7 @@ export default function OnboardingPage() {
       });
 
       await savePreferences(preferences);
-      router.push("/explore");
+      router.push("/journey");
     } catch (saveError) {
       setError(
         saveError instanceof Error
