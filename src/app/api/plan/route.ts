@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { isInterest, normalizeInterests } from "@/lib/interests";
 import { buildTripPlan } from "@/lib/route";
-import type { HealthGoal, Interest, OnboardingDetails, PlaceResult } from "@/lib/types";
+import { isHealthOptimisedMode } from "@/lib/mode-preferences";
+import type {
+  HealthGoal,
+  Interest,
+  OnboardingDetails,
+  PlaceResult,
+} from "@/lib/types";
 
 type PlanRequest = {
   destinationQuery?: string;
@@ -115,7 +121,8 @@ export async function POST(request: Request) {
         details,
       },
       {
-        healthOptimisedRoute: healthOptimisedRoute === true,
+        healthOptimisedRoute:
+          healthOptimisedRoute === true || isHealthOptimisedMode(details),
         recommendedPlaces,
         destinationPlaceId: destinationPlaceId?.trim() || undefined,
       },
