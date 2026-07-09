@@ -5,10 +5,15 @@ import { useRouter } from "next/navigation";
 import {
   clearPreferences,
   getPreferences,
-  getRadiusMeters,
   HEALTH_GOAL_OPTIONS,
   INTEREST_OPTIONS,
 } from "@/lib/preferences";
+import { getSearchRadiusMeters } from "@/lib/places";
+import {
+  FOOD_STYLE_OPTIONS,
+  HISTORY_STYLE_OPTIONS,
+  OUTING_STYLE_OPTIONS,
+} from "@/lib/onboarding";
 import type { PlaceResult, UserPreferences } from "@/lib/types";
 import { PlaceMap } from "@/components/explore/PlaceMap";
 import { PlaceList } from "@/components/explore/PlaceList";
@@ -37,6 +42,7 @@ export default function ExplorePage() {
           lng: position.lng,
           healthGoal: prefs.healthGoal,
           interests: prefs.interests,
+          details: prefs.details,
         }),
       });
 
@@ -156,8 +162,26 @@ export default function ExplorePage() {
       )
       .filter(Boolean)
       .join(", ") ?? "";
+  const detailLabels = [
+    preferences?.details?.outingStyle
+      ? OUTING_STYLE_OPTIONS.find(
+          (option) => option.value === preferences.details?.outingStyle,
+        )?.label
+      : null,
+    preferences?.details?.historyStyle
+      ? HISTORY_STYLE_OPTIONS.find(
+          (option) => option.value === preferences.details?.historyStyle,
+        )?.label
+      : null,
+    preferences?.details?.foodStyle
+      ? FOOD_STYLE_OPTIONS.find(
+          (option) => option.value === preferences.details?.foodStyle,
+        )?.label
+      : null,
+  ].filter(Boolean);
+
   const radiusMeters = preferences
-    ? getRadiusMeters(preferences.healthGoal)
+    ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
     : null;
 
   return (
@@ -174,8 +198,11 @@ export default function ExplorePage() {
             {preferences && (
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {healthLabel}
-                {radiusMeters ? ` · ${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} radius` : ""}
+                {radiusMeters
+                  ? ` · ${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`} radius`
+                  : ""}
                 {interestLabels ? ` · ${interestLabels}` : ""}
+                {detailLabels.length > 0 ? ` · ${detailLabels.join(" · ")}` : ""}
               </p>
             )}
           </div>

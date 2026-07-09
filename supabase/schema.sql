@@ -5,8 +5,13 @@ create table if not exists public.user_preferences (
   user_id uuid primary key references auth.users (id) on delete cascade,
   health_goal text not null check (health_goal in ('gentle', 'moderate', 'active')),
   interests text[] not null check (cardinality(interests) > 0),
+  profile_details jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Migration for existing projects:
+-- alter table public.user_preferences
+--   add column if not exists profile_details jsonb not null default '{}'::jsonb;
 
 alter table public.user_preferences enable row level security;
 

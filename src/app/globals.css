@@ -24,3 +24,157 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes onboarding-float {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-14px) translateX(6px);
+  }
+}
+
+@keyframes onboarding-float-delayed {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-8px);
+  }
+}
+
+@keyframes onboarding-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes onboarding-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes onboarding-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes onboarding-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes onboarding-pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes onboarding-compass-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes onboarding-pin-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes onboarding-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.onboarding-animate-fade-up {
+  animation: onboarding-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onboarding-animate-fade-in {
+  animation: onboarding-fade-in 0.45s ease both;
+}
+
+.onboarding-animate-slide-in-right {
+  animation: onboarding-slide-in-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onboarding-animate-slide-in-left {
+  animation: onboarding-slide-in-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onboarding-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.onboarding-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.onboarding-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.onboarding-delay-4 {
+  animation-delay: 0.32s;
+}
+
+.onboarding-delay-5 {
+  animation-delay: 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-animate-fade-up,
+  .onboarding-animate-fade-in,
+  .onboarding-animate-slide-in-right,
+  .onboarding-animate-slide-in-left {
+    animation: none;
+  }
+}

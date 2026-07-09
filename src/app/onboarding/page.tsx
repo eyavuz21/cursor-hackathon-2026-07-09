@@ -1,68 +1,186 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { HealthGoal, Interest } from "@/lib/types";
+import type {
+  FoodStyle,
+  HealthGoal,
+  HistoryStyle,
+  Interest,
+  OnboardingDetails,
+  OutingStyle,
+} from "@/lib/types";
+import {
+  getOnboardingSteps,
+  isStepComplete,
+  type OnboardingStepId,
+} from "@/lib/onboarding";
 import { savePreferences } from "@/lib/preferences";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { HealthStep } from "@/components/onboarding/HealthStep";
 import { InterestsStep } from "@/components/onboarding/InterestsStep";
+import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
+import { HealthFollowUpStep } from "@/components/onboarding/HealthFollowUpStep";
+import { HistoryFollowUpStep } from "@/components/onboarding/HistoryFollowUpStep";
+import { FoodFollowUpStep } from "@/components/onboarding/FoodFollowUpStep";
+import { LaunchStep } from "@/components/onboarding/LaunchStep";
+import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
+import { StepTransition } from "@/components/onboarding/StepTransition";
 import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
-
-const TOTAL_STEPS = 2;
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [healthGoal, setHealthGoal] = useState<HealthGoal | null>(null);
   const [interests, setInterests] = useState<Interest[]>([]);
+  const [details, setDetails] = useState<OnboardingDetails>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleNext() {
-    if (step === 1 && healthGoal) {
-      setStep(2);
-      return;
+  const steps = useMemo(() => getOnboardingSteps(interests), [interests]);
+  const effectiveStepIndex = Math.min(stepIndex, Math.max(0, steps.length - 1));
+  const currentStep = steps[effectiveStepIndex] ?? steps[0];
+  const isLaunch = currentStep === "launch";
+
+  const stepState = useMemo(
+    () => ({ healthGoal, interests, details }),
+    [healthGoal, interests, details],
+  );
+
+  const canContinue = isStepComplete(currentStep, stepState);
+
+  function goToStep(nextIndex: number, nextDirection: "forward" | "back") {
+    setDirection(nextDirection);
+    setStepIndex(nextIndex);
+    setError(null);
+  }
+
+  function handleHealthGoalChange(goal: HealthGoal) {
+    setHealthGoal(goal);
+    setDetails((current) => ({
+      ...current,
+      outingStyle: undefined,
+    }));
+  }
+
+  function handleInterestsChange(nextInterests: Interest[]) {
+    const nextSteps = getOnboardingSteps(nextInterests);
+    setInterests(nextInterests);
+    setStepIndex((current) => Math.min(current, Math.max(0, nextSteps.length - 1)));
+    setDetails((current) => ({
+      ...current,
+      historyStyle: nextInterests.includes("history")
+        ? current.historyStyle
+        : undefined,
+      foodStyle: nextInterests.includes("food") ? current.foodStyle : undefined,
+    }));
+  }
+
+  const handleLaunchComplete = useCallback(async () => {
+    if (!healthGoal || saving) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await savePreferences({ healthGoal, interests, details });
+      router.push("/explore");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Could not save your preferences. Please try again.",
+      );
+      setSaving(false);
+      setStepIndex(Math.max(0, steps.length - 2));
+      setDirection("back");
     }
+  }, [details, healthGoal, interests, router, saving, steps.length]);
 
-    if (step === 2 && healthGoal && interests.length > 0) {
-      setSaving(true);
-      setError(null);
+  function handleNext() {
+    if (!canContinue || saving) return;
 
-      try {
-        await savePreferences({ healthGoal, interests });
-        router.push("/explore");
-      } catch (saveError) {
-        setError(
-          saveError instanceof Error
-            ? saveError.message
-            : "Could not save your preferences. Please try again.",
-        );
-      } finally {
-        setSaving(false);
-      }
+    if (currentStep === "launch") return;
+
+    const nextIndex = effectiveStepIndex + 1;
+    if (nextIndex < steps.length) {
+      goToStep(nextIndex, "forward");
     }
   }
 
   function handleBack() {
-    if (step > 1) {
-      setStep(step - 1);
-      setError(null);
+    if (effectiveStepIndex > 0 && !isLaunch) {
+      goToStep(effectiveStepIndex - 1, "back");
     }
   }
 
-  const canContinue =
-    (step === 1 && healthGoal !== null) ||
-    (step === 2 && interests.length > 0);
+  function renderStep(step: OnboardingStepId) {
+    switch (step) {
+      case "welcome":
+        return <WelcomeStep onStart={handleNext} />;
+      case "health":
+        return (
+          <HealthStep value={healthGoal} onChange={handleHealthGoalChange} />
+        );
+      case "health-followup":
+        return healthGoal ? (
+          <HealthFollowUpStep
+            healthGoal={healthGoal}
+            value={details.outingStyle}
+            onChange={(outingStyle: OutingStyle) =>
+              setDetails((current) => ({ ...current, outingStyle }))
+            }
+          />
+        ) : null;
+      case "interests":
+        return (
+          <InterestsStep value={interests} onChange={handleInterestsChange} />
+        );
+      case "history-followup":
+        return (
+          <HistoryFollowUpStep
+            value={details.historyStyle}
+            onChange={(historyStyle: HistoryStyle) =>
+              setDetails((current) => ({ ...current, historyStyle }))
+            }
+          />
+        );
+      case "food-followup":
+        return (
+          <FoodFollowUpStep
+            value={details.foodStyle}
+            onChange={(foodStyle: FoodStyle) =>
+              setDetails((current) => ({ ...current, foodStyle }))
+            }
+          />
+        );
+      case "launch":
+        return healthGoal ? (
+          <LaunchStep
+            healthGoal={healthGoal}
+            interests={interests}
+            details={details}
+            onComplete={handleLaunchComplete}
+          />
+        ) : null;
+    }
+  }
 
   if (!isSupabaseConfigured()) {
     return <SupabaseSetupNotice />;
   }
 
+  const progressSteps = steps.filter((step) => step !== "welcome");
+  const progressIndex = Math.max(
+    0,
+    progressSteps.indexOf(currentStep === "welcome" ? "health" : currentStep),
+  );
+
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-12 font-sans dark:bg-black">
-      <main className="flex w-full max-w-xl flex-col gap-8">
-        <div className="flex flex-col gap-3">
+    <OnboardingShell>
+      {currentStep !== "welcome" && !isLaunch && (
+        <div className="onboarding-animate-fade-in flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             <span className="font-mono text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
@@ -70,14 +188,14 @@ export default function OnboardingPage() {
             </span>
           </div>
           <p className="font-mono text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-            Step {step} of {TOTAL_STEPS}
+            Step {progressIndex + 1} of {progressSteps.length}
           </p>
           <div className="flex gap-2">
-            {Array.from({ length: TOTAL_STEPS }, (_, index) => (
+            {progressSteps.map((step, index) => (
               <div
-                key={index}
-                className={`h-1 flex-1 rounded-full ${
-                  index < step
+                key={step}
+                className={`h-1 flex-1 rounded-full transition-colors duration-500 ${
+                  index <= progressIndex
                     ? "bg-emerald-500"
                     : "bg-zinc-200 dark:bg-zinc-800"
                 }`}
@@ -85,21 +203,21 @@ export default function OnboardingPage() {
             ))}
           </div>
         </div>
+      )}
 
-        {step === 1 ? (
-          <HealthStep value={healthGoal} onChange={setHealthGoal} />
-        ) : (
-          <InterestsStep value={interests} onChange={setInterests} />
-        )}
+      <StepTransition stepKey={currentStep} direction={direction}>
+        {renderStep(currentStep)}
+      </StepTransition>
 
-        {error && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          {error}
+        </p>
+      )}
 
-        <div className="flex gap-3">
-          {step > 1 && (
+      {currentStep !== "welcome" && !isLaunch && (
+        <div className="onboarding-animate-fade-up flex gap-3">
+          {effectiveStepIndex > 0 && (
             <button
               type="button"
               onClick={handleBack}
@@ -115,14 +233,10 @@ export default function OnboardingPage() {
             disabled={!canContinue || saving}
             className="flex-1 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {saving
-              ? "Saving..."
-              : step === TOTAL_STEPS
-                ? "Find places"
-                : "Continue"}
+            {effectiveStepIndex === steps.length - 2 ? "Craft my wander" : "Continue"}
           </button>
         </div>
-      </main>
-    </div>
+      )}
+    </OnboardingShell>
   );
 }

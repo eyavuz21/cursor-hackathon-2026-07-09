@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { getRadiusMeters } from "@/lib/preferences";
 import {
   dedupePlaces,
   getIncludedTypes,
+  getSearchRadiusMeters,
   normalizePlace,
 } from "@/lib/places";
-import type { HealthGoal, Interest } from "@/lib/types";
+import type { HealthGoal, Interest, OnboardingDetails } from "@/lib/types";
 
 type PlacesRequest = {
   lat: number;
   lng: number;
   healthGoal: HealthGoal;
   interests: Interest[];
+  details?: OnboardingDetails;
 };
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
@@ -50,9 +51,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const { lat, lng, healthGoal, interests } = body;
-  const radius = getRadiusMeters(healthGoal);
-  const includedTypes = getIncludedTypes(interests);
+  const { lat, lng, healthGoal, interests, details } = body;
+  const radius = getSearchRadiusMeters(healthGoal, details);
+  const includedTypes = getIncludedTypes(interests, details);
 
   const response = await fetch(
     "https://places.googleapis.com/v1/places:searchNearby",

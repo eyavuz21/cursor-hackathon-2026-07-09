@@ -20,17 +20,17 @@ export function InterestsStep({ value, onChange }: InterestsStepProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+      <div className="onboarding-animate-fade-up flex flex-col gap-2">
         <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           What are you in the mood for?
         </h2>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Pick at least one — we&apos;ll tailor recommendations to your interests.
+          Pick at least one — we&apos;ll ask a follow-up for each you choose.
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
-        {INTEREST_OPTIONS.map((option) => {
+        {INTEREST_OPTIONS.map((option, index) => {
           const selected = value.includes(option.value);
 
           return (
@@ -38,11 +38,12 @@ export function InterestsStep({ value, onChange }: InterestsStepProps) {
               key={option.value}
               type="button"
               onClick={() => toggleInterest(option.value)}
-              className={`rounded-2xl border p-4 text-left transition-colors ${
+              className={`onboarding-animate-fade-up rounded-2xl border p-4 text-left transition-all duration-200 ${
                 selected
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-950/40"
+                  ? "border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-500/10 dark:border-emerald-400 dark:bg-emerald-950/40"
                   : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
               }`}
+              style={{ animationDelay: `${index * 0.08}s` }}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-col gap-1">

@@ -11,7 +11,7 @@ type HealthStepProps = {
 export function HealthStep({ value, onChange }: HealthStepProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+      <div className="onboarding-animate-fade-up flex flex-col gap-2">
         <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           How far do you like to walk?
         </h2>
@@ -21,7 +21,7 @@ export function HealthStep({ value, onChange }: HealthStepProps) {
       </div>
 
       <div className="flex flex-col gap-3">
-        {HEALTH_GOAL_OPTIONS.map((option) => {
+        {HEALTH_GOAL_OPTIONS.map((option, index) => {
           const selected = value === option.value;
 
           return (
@@ -29,11 +29,12 @@ export function HealthStep({ value, onChange }: HealthStepProps) {
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`rounded-2xl border p-4 text-left transition-colors ${
+              className={`onboarding-animate-fade-up rounded-2xl border p-4 text-left transition-all duration-200 ${
                 selected
-                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-950/40"
+                  ? "border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-500/10 dark:border-emerald-400 dark:bg-emerald-950/40"
                   : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
               }`}
+              style={{ animationDelay: `${index * 0.08}s` }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-1">

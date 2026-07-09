@@ -1,22 +1,72 @@
 import { NextResponse } from "next/server";
 import { ensureServerSession } from "@/lib/supabase/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import type { HealthGoal, Interest, UserPreferences } from "@/lib/types";
+import type {
+  FoodStyle,
+  HealthGoal,
+  HistoryStyle,
+  Interest,
+  OnboardingDetails,
+  OutingStyle,
+  UserPreferences,
+} from "@/lib/types";
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
 const INTERESTS: Interest[] = ["history", "food"];
+const OUTING_STYLES: OutingStyle[] = ["scenic", "direct", "explorer"];
+const HISTORY_STYLES: HistoryStyle[] = ["museums", "landmarks", "local"];
+const FOOD_STYLES: FoodStyle[] = ["coffee", "quick", "dining"];
+
+function isValidDetails(details: unknown): details is OnboardingDetails {
+  if (!details || typeof details !== "object") return true;
+
+  const value = details as OnboardingDetails;
+
+  if (
+    value.outingStyle !== undefined &&
+    !OUTING_STYLES.includes(value.outingStyle)
+  ) {
+    return false;
+  }
+
+  if (
+    value.historyStyle !== undefined &&
+    !HISTORY_STYLES.includes(value.historyStyle)
+  ) {
+    return false;
+  }
+
+  if (value.foodStyle !== undefined && !FOOD_STYLES.includes(value.foodStyle)) {
+    return false;
+  }
+
+  return true;
+}
 
 function isValidPreferences(body: unknown): body is UserPreferences {
   if (!body || typeof body !== "object") return false;
 
-  const { healthGoal, interests } = body as UserPreferences;
+  const { healthGoal, interests, details } = body as UserPreferences;
 
   return (
     HEALTH_GOALS.includes(healthGoal) &&
     Array.isArray(interests) &&
     interests.length > 0 &&
-    interests.every((interest) => INTERESTS.includes(interest))
+    interests.every((interest) => INTERESTS.includes(interest)) &&
+    isValidDetails(details)
   );
+}
+
+function parseDetails(raw: unknown): OnboardingDetails | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+
+  const details = raw as OnboardingDetails;
+  if (!isValidDetails(details)) return undefined;
+
+  const hasValues =
+    details.outingStyle || details.historyStyle || details.foodStyle;
+
+  return hasValues ? details : undefined;
 }
 
 export async function GET() {
@@ -32,7 +82,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("user_preferences")
-      .select("health_goal, interests")
+      .select("health_goal, interests, profile_details")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -48,6 +98,7 @@ export async function GET() {
       preferences: {
         healthGoal: data.health_goal,
         interests: data.interests,
+        details: parseDetails(data.profile_details),
       } satisfies UserPreferences,
     });
   } catch (error) {
@@ -86,6 +137,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         health_goal: body.healthGoal,
         interests: body.interests,
+        profile_details: body.details ?? {},
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
