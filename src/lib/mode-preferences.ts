@@ -147,7 +147,7 @@ export function getModeFollowUpPrompt(mode: JourneyMode): {
     case "social":
       return {
         title: "What are you in the mood for?",
-        subtitle: "Pick one or two — we'll find spots that match.",
+        subtitle: "Pick one or more — we'll find spots that match.",
       };
     case "health_optimised":
       return {

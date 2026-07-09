@@ -9,7 +9,6 @@ import { savePreferences } from "@/lib/preferences";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { ModeStep } from "@/components/onboarding/ModeStep";
-import { ModeFollowUpStep } from "@/components/onboarding/ModeFollowUpStep";
 import { LaunchStep } from "@/components/onboarding/LaunchStep";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { StepTransition } from "@/components/onboarding/StepTransition";
@@ -44,15 +43,13 @@ export default function OnboardingPage() {
     setError(null);
   }
 
-  function handleModeSelect(mode: JourneyMode) {
+  function handleModeChange(mode: JourneyMode) {
+    if (mode === journeyMode) return;
+
     setJourneyMode(mode);
     setHealthGoal(null);
     setSocialVibes([]);
     setTimeBudget(null);
-
-    if (effectiveStepIndex === steps.indexOf("mode")) {
-      goToStep(effectiveStepIndex + 1, "forward");
-    }
   }
 
   const handleLaunchComplete = useCallback(async () => {
@@ -104,19 +101,18 @@ export default function OnboardingPage() {
       case "welcome":
         return <WelcomeStep onStart={handleNext} />;
       case "mode":
-        return <ModeStep value={journeyMode} onChange={handleModeSelect} />;
-      case "mode-followup":
-        return journeyMode ? (
-          <ModeFollowUpStep
+        return (
+          <ModeStep
             journeyMode={journeyMode}
             healthGoal={healthGoal}
             socialVibes={socialVibes}
             timeBudget={timeBudget}
+            onModeChange={handleModeChange}
             onHealthGoalChange={setHealthGoal}
             onSocialVibesChange={setSocialVibes}
             onTimeBudgetChange={setTimeBudget}
           />
-        ) : null;
+        );
       case "launch":
         return journeyMode ? (
           <LaunchStep
