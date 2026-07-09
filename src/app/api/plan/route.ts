@@ -12,6 +12,7 @@ type PlanRequest = {
   healthGoal?: HealthGoal;
   interests?: Interest[];
   details?: OnboardingDetails;
+  healthOptimisedRoute?: boolean;
 };
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
     healthGoal,
     interests,
     details,
+    healthOptimisedRoute,
   } = body;
 
   const query = destinationQuery!.trim();
@@ -97,6 +99,7 @@ export async function POST(request: Request) {
         interests: normalizedInterests,
         details,
       },
+      { healthOptimisedRoute: healthOptimisedRoute === true },
     );
 
     return NextResponse.json({ plan });
