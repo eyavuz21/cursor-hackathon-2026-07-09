@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeInterests } from "@/lib/interests";
 import type {
   HealthGoal,
+  JourneyMode,
   OnboardingDetails,
   OutingStyle,
   UserPreferences,
@@ -11,6 +12,7 @@ import type {
 
 const HEALTH_GOALS: HealthGoal[] = ["gentle", "moderate", "active"];
 const OUTING_STYLES: OutingStyle[] = ["scenic", "direct", "explorer"];
+const JOURNEY_MODES: JourneyMode[] = ["mindfulness", "social"];
 
 function isValidDetails(details: unknown): details is OnboardingDetails {
   if (!details || typeof details !== "object") return true;
@@ -20,6 +22,13 @@ function isValidDetails(details: unknown): details is OnboardingDetails {
   if (
     value.outingStyle !== undefined &&
     !OUTING_STYLES.includes(value.outingStyle)
+  ) {
+    return false;
+  }
+
+  if (
+    value.journeyMode !== undefined &&
+    !JOURNEY_MODES.includes(value.journeyMode)
   ) {
     return false;
   }
@@ -67,7 +76,7 @@ function getValidationError(body: unknown): string | null {
   }
 
   if (!isValidDetails(details)) {
-    return "Invalid outing style selected.";
+    return "Invalid profile details selected.";
   }
 
   return null;
@@ -79,7 +88,10 @@ function parseDetails(raw: unknown): OnboardingDetails | undefined {
   const details = raw as OnboardingDetails;
   if (!isValidDetails(details)) return undefined;
 
-  return details.outingStyle ? details : undefined;
+  const hasValues =
+    details.outingStyle || details.journeyMode;
+
+  return hasValues ? details : undefined;
 }
 
 export async function GET() {

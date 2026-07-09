@@ -12,10 +12,13 @@ import {
   clearPreferences,
   getPreferences,
   HEALTH_GOAL_OPTIONS,
+  updateJourneyMode,
 } from "@/lib/preferences";
 import { OUTING_STYLE_OPTIONS } from "@/lib/onboarding";
+import { getJourneyMode, getJourneyModeLabel } from "@/lib/modes";
 import { getSearchRadiusMeters } from "@/lib/places";
-import type { TripPlan, UserPreferences } from "@/lib/types";
+import type { JourneyMode, TripPlan, UserPreferences } from "@/lib/types";
+import { JourneyModeToggle } from "@/components/JourneyModeToggle";
 
 type Coordinates = {
   lat: number;
@@ -34,6 +37,7 @@ export default function PlanPage() {
   const [planning, setPlanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [modeSaving, setModeSaving] = useState(false);
 
   const requestLocation = useCallback(() => {
     return new Promise<Coordinates>((resolve, reject) => {
@@ -175,6 +179,28 @@ export default function PlanPage() {
     router.push("/onboarding");
   }
 
+  async function handleModeChange(mode: JourneyMode) {
+    if (!preferences || modeSaving) return;
+
+    setModeSaving(true);
+    setError(null);
+    setSavedMessage(null);
+
+    try {
+      const updated = await updateJourneyMode(mode);
+      setPreferences(updated);
+      setPlan(null);
+    } catch (modeError) {
+      setError(
+        modeError instanceof Error
+          ? modeError.message
+          : "Could not update journey mode.",
+      );
+    } finally {
+      setModeSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center bg-background px-6 font-sans">
@@ -202,6 +228,9 @@ export default function PlanPage() {
   const radiusMeters = preferences
     ? getSearchRadiusMeters(preferences.healthGoal, preferences.details)
     : null;
+  const journeyModeLabel = preferences
+    ? getJourneyModeLabel(getJourneyMode(preferences.details))
+    : null;
 
   const subtitle = preferences
     ? [
@@ -211,6 +240,7 @@ export default function PlanPage() {
           : null,
         interestLabels || null,
         outingLabel,
+        journeyModeLabel,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -240,10 +270,18 @@ export default function PlanPage() {
               </h1>
               <p className="text-sm leading-relaxed text-muted">
                 Tell us where you want to go. We&apos;ll weave personalised
-                recommendations into the route based on your walking pace and
-                interests.
+                recommendations into the route based on your mode, walking pace,
+                and interests.
               </p>
             </div>
+
+            {preferences && (
+              <JourneyModeToggle
+                value={getJourneyMode(preferences.details)}
+                onChange={handleModeChange}
+                disabled={modeSaving || planning}
+              />
+            )}
 
             <form onSubmit={handleCreatePlan} className="flex flex-col gap-3 sm:flex-row">
               <input
