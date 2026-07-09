@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
-import { formatDetour, type ShopPlan, type ShoppingMode } from "@/lib/shopping";
+import { formatDetour, formatPriceGbp, type ShopPlan, type ShoppingMode } from "@/lib/shopping";
 import { getPreferences } from "@/lib/preferences";
 import type { UserPreferences } from "@/lib/types";
 
@@ -21,13 +21,13 @@ const MODE_OPTIONS: {
     value: "scavenger",
     label: "Scavenger",
     description:
-      "Nearest stop per item along your route — hunt deals across multiple shops.",
+      "Cheapest item per stop along your route — powered by live web prices when LinkUp is configured.",
   },
   {
     value: "efficiency",
     label: "Efficiency",
     description:
-      "One supermarket for the whole list — minimise stops when you are in a rush.",
+      "One supermarket for the whole list — lowest total basket price when live prices are available.",
   },
 ];
 
@@ -178,7 +178,9 @@ export default function ShopPage() {
               across nearby stops; Efficiency mode picks one shop for the whole list.
             </p>
             <p className="text-xs text-muted">
-              Photo scan coming soon. Live price intelligence integrates with{" "}
+              Photo scan coming soon. With{" "}
+              <code className="text-[11px]">LINKUP_API_KEY</code> set, Wander
+              fetches live grocery prices via LinkUp (same stack as{" "}
               <a
                 href="https://github.com/eyavuz21/ParkAndSave"
                 target="_blank"
@@ -187,7 +189,7 @@ export default function ShopPage() {
               >
                 ParkAndSave
               </a>
-              .
+              ).
             </p>
           </div>
 
@@ -271,7 +273,28 @@ export default function ShopPage() {
                   ? ` · ${formatDetour(plan.totalDetourMeters)} total`
                   : ""}
               </p>
+              {plan.priceSummary && (
+                <p className="text-sm text-foreground">{plan.priceSummary}</p>
+              )}
               {priceNote && <p className="text-xs text-muted">{priceNote}</p>}
+              {plan.priceSources && plan.priceSources.length > 0 && (
+                <p className="text-xs text-muted">
+                  Sources:{" "}
+                  {plan.priceSources.map((source, index) => (
+                    <span key={source.url}>
+                      {index > 0 ? ", " : ""}
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="brand-link"
+                      >
+                        {source.name}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-3">
@@ -290,6 +313,9 @@ export default function ShopPage() {
                         {stop.shop.distanceMeters >= 1000
                           ? `${(stop.shop.distanceMeters / 1000).toFixed(1)} km away`
                           : `${stop.shop.distanceMeters} m away`}
+                        {stop.estimatedTotalGbp != null
+                          ? ` · est. ${formatPriceGbp(stop.estimatedTotalGbp)}`
+                          : ""}
                       </p>
                     </div>
                     <a
@@ -308,6 +334,9 @@ export default function ShopPage() {
                         className="border border-border bg-accent-subtle px-2.5 py-1 text-xs uppercase tracking-wider text-foreground"
                       >
                         {item}
+                        {stop.itemPrices?.[item] != null
+                          ? ` · ${formatPriceGbp(stop.itemPrices[item])}`
+                          : ""}
                       </li>
                     ))}
                   </ul>

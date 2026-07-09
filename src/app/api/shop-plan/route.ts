@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { geocodeDestination } from "@/lib/google-places";
+import { fetchLiveBasketPrices, isLinkUpConfigured } from "@/lib/linkup-prices";
 import { findSupermarketsAlongCorridor } from "@/lib/osm-shops";
 import {
   buildShopPlan,
@@ -97,21 +98,44 @@ export async function POST(request: Request) {
       searchRadius,
     );
 
+    const livePrices = isLinkUpConfigured()
+      ? await fetchLiveBasketPrices({
+          items,
+          shops,
+          lat: start.lat,
+          lng: start.lng,
+        })
+      : null;
+
     const plan = buildShopPlan({
       mode,
       items,
       shops,
       start,
       destination,
+      livePrices: livePrices
+        ? {
+            quotes: livePrices.quotes,
+            basketWinnerShopId: livePrices.basketWinnerShopId,
+            basketWinnerShopName: livePrices.basketWinnerShopName,
+            summary: livePrices.summary,
+            sources: livePrices.sources,
+          }
+        : null,
     });
+
+    const priceNote = plan.priceSource === "linkup"
+      ? "Live web prices via LinkUp (ParkAndSave integration)."
+      : isLinkUpConfigured()
+        ? "Could not fetch live prices right now — using route-based supermarket matching."
+        : "Add LINKUP_API_KEY for live grocery prices (ParkAndSave / LinkUp integration).";
 
     return NextResponse.json({
       plan,
       destination,
       shopCount: shops.length,
-      dataSource: "openstreetmap",
-      priceNote:
-        "MVP uses real supermarket locations from OpenStreetMap. Live price comparison integrates with ParkAndSave (LinkUp).",
+      dataSource: plan.priceSource === "linkup" ? "openstreetmap+linkup" : "openstreetmap",
+      priceNote,
     });
   } catch (error) {
     return NextResponse.json(
