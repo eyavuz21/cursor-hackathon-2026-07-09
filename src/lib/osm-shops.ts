@@ -1,5 +1,11 @@
 const USER_AGENT = "Wander/1.0 (hackathon; contact@example.com)";
 
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+];
+
 export type Supermarket = {
   id: string;
   name: string;
@@ -34,34 +40,15 @@ type OverpassElement = {
   tags?: Record<string, string>;
 };
 
-export async function findNearbySupermarkets(
-  lat: number,
-  lng: number,
-  radiusMeters: number,
-): Promise<Supermarket[]> {
-  const radius = Math.min(Math.max(Math.round(radiusMeters), 200), 5_000);
-  const query = `[out:json][timeout:20];(node["shop"="supermarket"](around:${radius},${lat},${lng});way["shop"="supermarket"](around:${radius},${lat},${lng}););out center 25;`;
-
-  const response = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: {
-      "User-Agent": USER_AGENT,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: `data=${encodeURIComponent(query)}`,
-    next: { revalidate: 300 },
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not look up supermarkets from OpenStreetMap.");
-  }
-
-  const data = (await response.json()) as { elements?: OverpassElement[] };
+function parseOverpassElements(
+  elements: OverpassElement[],
+  originLat: number,
+  originLng: number,
+): Supermarket[] {
   const seen = new Set<string>();
-
   const shops: Supermarket[] = [];
 
-  for (const element of data.elements ?? []) {
+  for (const element of elements) {
     const shopLat = element.lat ?? element.center?.lat;
     const shopLng = element.lon ?? element.center?.lon;
     const name = element.tags?.name ?? element.tags?.brand;
@@ -78,11 +65,73 @@ export async function findNearbySupermarkets(
       brand: element.tags?.brand,
       lat: shopLat,
       lng: shopLng,
-      distanceMeters: haversineMeters(lat, lng, shopLat, shopLng),
+      distanceMeters: haversineMeters(originLat, originLng, shopLat, shopLng),
     });
   }
 
   return shops.sort((a, b) => a.distanceMeters - b.distanceMeters);
+}
+
+async function queryOverpass(
+  endpoint: string,
+  query: string,
+): Promise<OverpassElement[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "User-Agent": USER_AGENT,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controller.signal,
+      next: { revalidate: 300 },
+    });
+
+    const text = await response.text();
+
+    if (!response.ok || text.trim().startsWith("<")) {
+      throw new Error(`Overpass request failed at ${endpoint}`);
+    }
+
+    const data = JSON.parse(text) as { elements?: OverpassElement[] };
+    return data.elements ?? [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function findNearbySupermarkets(
+  lat: number,
+  lng: number,
+  radiusMeters: number,
+): Promise<Supermarket[]> {
+  const radius = Math.min(Math.max(Math.round(radiusMeters), 200), 5_000);
+  const query = `[out:json][timeout:25];(node["shop"="supermarket"](around:${radius},${lat},${lng});way["shop"="supermarket"](around:${radius},${lat},${lng}););out center 25;`;
+
+  let lastError: Error | null = null;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const elements = await queryOverpass(endpoint, query);
+      const shops = parseOverpassElements(elements, lat, lng);
+      if (shops.length > 0) {
+        return shops;
+      }
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error : new Error("Overpass lookup failed.");
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return [];
 }
 
 export async function findSupermarketsAlongCorridor(
