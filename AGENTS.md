@@ -1,3 +1,9 @@
+<!-- BEGIN:hackathon-plan -->
+# Hackathon plan
+
+Read [`PLAN.md`](PLAN.md) for the full implementation plan. Work is split between **Person A** (onboarding) and **Person B** (maps + recommendations).
+<!-- END:hackathon-plan -->
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

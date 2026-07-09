@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cursor Hackathon — 2026 July 09",
-  description: "Project scaffold for the 2026 July 09 Cursor Hackathon.",
+  title: "Wander — Interest Travel Guide",
+  description:
+    "Discover nearby places tailored to how far you like to walk and what you're interested in.",
 };
 
 export default function RootLayout({
