@@ -1,4 +1,4 @@
-# Interest-Driven Travel Guide — Hackathon Plan (2 Hours)
+# Interest-Driven Travel Guide, Hackathon Plan (2 Hours)
 
 > **For agents:** This is the source-of-truth plan. Read this before implementing.
 > Work is split between **Person A** (onboarding) and **Person B** (maps + recommendations).
@@ -7,8 +7,8 @@
 
 Build a limited-scope travel guide on the existing **Next.js 16 + React 19 + Tailwind 4** scaffold.
 
-1. **Onboarding journey** — capture health goals (distance radius) and interests (history, food)
-2. **Explore page** — use browser geolocation + Google Places to recommend nearby spots on a map
+1. **Onboarding journey:** capture health goals (distance radius) and interests (history, food)
+2. **Explore page:** use browser geolocation + Google Places to recommend nearby spots on a map
 
 **Starting point:** Only a landing page exists at [`src/app/page.tsx`](src/app/page.tsx). Everything else is greenfield.
 
@@ -55,7 +55,7 @@ flowchart TD
 
 ---
 
-## Shared contract (do this first — either person, ~5 min)
+## Shared contract (do this first, either person, ~5 min)
 
 Create [`src/lib/types.ts`](src/lib/types.ts) before parallel work so both sides agree on shapes:
 
@@ -92,7 +92,7 @@ export type PlaceResult = {
 | `history` | `museum`, `tourist_attraction`, `church` |
 | `food` | `restaurant`, `cafe`, `bakery` |
 
-**API contract** — `POST /api/places`:
+**API contract:** `POST /api/places`:
 
 ```ts
 // Request body
@@ -123,9 +123,9 @@ getRadiusMeters(healthGoal): number  // sync helper
 
 ---
 
-## Person A — Onboarding journey (~1 hour)
+## Person A, Onboarding journey (~1 hour)
 
-**Owns:** Section 1 — collecting user preferences and routing into the app.
+**Owns:** Section 1, collecting user preferences and routing into the app.
 
 ### Files (Person A only)
 
@@ -139,26 +139,26 @@ getRadiusMeters(healthGoal): number  // sync helper
 | [`src/components/onboarding/HealthStep.tsx`](src/components/onboarding/HealthStep.tsx) | Radio cards for health goals |
 | [`src/components/onboarding/InterestsStep.tsx`](src/components/onboarding/InterestsStep.tsx) | Toggle chips for history / food |
 | [`src/app/page.tsx`](src/app/page.tsx) | Redirect to `/onboarding` or `/explore` based on stored prefs |
-| [`src/app/layout.tsx`](src/app/layout.tsx) | Update title/metadata to "Wander — Interest Travel Guide" |
+| [`src/app/layout.tsx`](src/app/layout.tsx) | Update title/metadata to "Wander, Interest Travel Guide" |
 
 ### Tasks
 
-1. **Shared types** — create `src/lib/types.ts` (if not already done)
-2. **Preferences lib** — `src/lib/preferences.ts`:
+1. **Shared types:** create `src/lib/types.ts` (if not already done)
+2. **Preferences lib:** `src/lib/preferences.ts`:
    - Uses Supabase anonymous auth (auto sign-in on first visit)
-   - `getPreferences()` / `savePreferences()` / `clearPreferences()` — async, backed by `user_preferences` table
-   - `getRadiusMeters(healthGoal): number` — lookup table from preference model above
-3. **Supabase setup** — run `supabase/schema.sql` in SQL Editor; enable Anonymous sign-ins in Auth settings
-4. **Onboarding wizard** — `"use client"` multi-step form at `/onboarding`:
+   - `getPreferences()` / `savePreferences()` / `clearPreferences()`, async, backed by `user_preferences` table
+   - `getRadiusMeters(healthGoal): number`, lookup table from preference model above
+3. **Supabase setup:** run `supabase/schema.sql` in SQL Editor; enable Anonymous sign-ins in Auth settings
+4. **Onboarding wizard:** `"use client"` multi-step form at `/onboarding`:
    - Step 1: 3 radio-style cards (gentle / moderate / active) with short copy ("~10 min walk", etc.)
    - Step 2: multi-select chips for History and Food (require ≥ 1)
    - Progress indicator ("Step 1 of 2")
    - On finish: `await savePreferences()` → `router.push("/explore")`
    - Match zinc/emerald Tailwind aesthetic from existing scaffold
-5. **Home redirect** — update `src/app/page.tsx`:
+5. **Home redirect:** update `src/app/page.tsx`:
    - If prefs exist → redirect `/explore`
    - Else → redirect `/onboarding`
-6. **Layout metadata** — update `src/app/layout.tsx` title/description
+6. **Layout metadata:** update `src/app/layout.tsx` title/description
 
 ### Person A done when
 
@@ -168,9 +168,9 @@ getRadiusMeters(healthGoal): number  // sync helper
 
 ---
 
-## Person B — Maps & recommendations (~1 hour)
+## Person B, Maps & recommendations (~1 hour)
 
-**Owns:** Section 2 — geolocation, Google Places API, map UI, and recommendation list.
+**Owns:** Section 2, geolocation, Google Places API, map UI, and recommendation list.
 
 ### Files (Person B only)
 
@@ -206,26 +206,26 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_browser_key
 
 ### Tasks
 
-1. **Places lib** — `src/lib/places.ts`:
+1. **Places lib:** `src/lib/places.ts`:
    - `getIncludedTypes(interests: Interest[]): string[]`
-   - `normalizePlace(raw): PlaceResult` — map Google response fields to shared type
-2. **API route** — `POST /api/places`:
+   - `normalizePlace(raw): PlaceResult`, map Google response fields to shared type
+2. **API route:** `POST /api/places`:
    - Accept `{ lat, lng, healthGoal, interests }`
    - Resolve radius via `getRadiusMeters(healthGoal)` (import from Person A's `preferences.ts`)
    - Call `https://places.googleapis.com/v1/places:searchNearby`
    - Field mask: `places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating`
    - `maxResultCount: 10`, `rankPreference: DISTANCE`
    - Return `{ places: PlaceResult[] }`
-3. **Explore page** — `/explore`:
+3. **Explore page:** `/explore`:
    - On mount: `await getPreferences()`; redirect to `/onboarding` if missing
    - `navigator.geolocation.getCurrentPosition` for lat/lng
    - Fetch `POST /api/places` with coords + prefs
    - Header: show radius + interests; **"Start over"** calls `clearPreferences()` → `/onboarding`
    - Layout: map on top (or left on desktop), scrollable list below
-4. **PlaceMap** — `@vis.gl/react-google-maps`:
+4. **PlaceMap:** `@vis.gl/react-google-maps`:
    - User marker + numbered place markers
    - (Nice-to-have) clicking marker highlights card
-5. **PlaceList** — cards with name, address, rating, link to `googleMapsUri`
+5. **PlaceList:** cards with name, address, rating, link to `googleMapsUri`
 
 ### API route sketch
 
