@@ -1,6 +1,6 @@
 # Wander: Human-first urban mobility
 
-**Live app:** [cursor-hackathon-2026-07-09.vercel.app](https://cursor-hackathon-2026-07-09.vercel.app)
+**🔴 Live demo: <https://cursor-hackathon-2026-07-09.vercel.app>**
 
 Built for the **2026 July 09 Cursor Hackathon**. Wander is not another map that optimises for the machine. It optimises for the human walking through the city.
 
